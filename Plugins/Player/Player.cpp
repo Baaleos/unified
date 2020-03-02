@@ -1460,9 +1460,10 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                     CNWSPlayerJournalQuestUpdates update;
                     update.szPlot_Id = newJournal.szPlot_Id;
                     update.flags = 1;
+                    pPlayer->m_pJournalQuest->m_bOpen =1;
                     pPlayer->m_pJournalQuest->m_lstModifications.Add(update);
-                    
-                    
+                    pPlayer->m_pJournalQuest->m_bOpen= 0;
+                    pPlayer->m_pJournalQuest->m_bFullUpdateNeeded = 1;
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                 }
                 else
