@@ -38,7 +38,7 @@
 #include "Encoding.hpp"
 #include "API/CExoLocString.hpp"
 #include "Utils.hpp"
-
+#include "CWorldTimer.hpp"
 
 
 using namespace NWNXLib;
@@ -1376,11 +1376,26 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             const auto diplayed = Services::Events::ExtractArgument<int32_t>(args);
             const auto updated = Services::Events::ExtractArgument<int32_t>(args);
             
+            uint32_t ConvertToCalendarDay(uint32_t nYear, uint32_t nMonth, uint32_t nDay);
+            uint32_t ConvertToTimeOfDay(uint32_t nHour, uint32_t nMinute, uint32_t nSecond, uint32_t nMillisecond);
+            uint32_t GetWorldTimeYear();
+            uint32_t GetWorldTimeMonth();
+            uint32_t GetWorldTimeDay();
+            uint32_t GetWorldTimeHour();
+            uint32_t GetWorldTimeMinute();
+            uint32_t GetWorldTimeSecond();
+            uint32_t GetWorldTimeMillisecond();
+            
+            uint32_t calDay = 0;
+            uint32_t timeDay = 0;
+            
+            Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTime(calDay, timeDay);
+            
             SJournalEntry newJournal;
             newJournal.szName       = CreateCExoLocString(questName);
             newJournal.szText       = CreateCExoLocString(questText);
-            newJournal.nCalendarDay = calendarDay;
-            newJournal.nTimeOfDay   = timeOfDay;
+            newJournal.nCalendarDay = calDay;
+            newJournal.nTimeOfDay   = timeDay;
             newJournal.szPlot_Id    = CExoString(tag.c_str());
             newJournal.nState       = state;
             newJournal.nPriority    = priority;
