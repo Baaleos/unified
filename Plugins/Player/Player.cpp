@@ -1386,8 +1386,8 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             uint32_t GetWorldTimeSecond();
             uint32_t GetWorldTimeMillisecond();
             
-            uint32_t calDay = 0;
-            uint32_t timeDay = 0;
+            uint32_t calDay = 0x0;
+            uint32_t timeDay = 0x0;
             
             Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTime(calDay, timeDay);
             
