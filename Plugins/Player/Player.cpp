@@ -1431,7 +1431,8 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                         {
                             if (pEntry->szPlot_Id.CStr() == tag)
                             {
-                                pCreature->m_pJournal->m_lstEntries.Remove(pEntry);
+                                const auto pEntryToRemove = pEntry;
+                                pCreature->m_pJournal->m_lstEntries.Remove(pEntryToRemove);
                                 pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
                             }
                         }
