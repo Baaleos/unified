@@ -1389,7 +1389,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             uint32_t calDay = 0x0;
             uint32_t timeDay = 0x0;
             
-            Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTime(calDay *, timeDay *);
+            Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTime(*calDay, *timeDay);
             
             SJournalEntry newJournal;
             newJournal.szName       = CreateCExoLocString(questName);
