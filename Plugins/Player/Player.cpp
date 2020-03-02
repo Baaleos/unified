@@ -1420,7 +1420,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             newJournal.bQuestDisplayed= diplayed; 
             newJournal.bUpdated     = updated; 
                     
-            if (entries.num > 0)
+            /*if (entries.num > 0)
             {
                 auto pEntry = entries.element;
                 for (int i = 0; i < entries.num; i++, pEntry++)
@@ -1432,7 +1432,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                         return Services::Events::Arguments(retval);
                     }
                 }
-            }
+            }*/
             
             
             
