@@ -1376,20 +1376,9 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             
             auto calDay = Services::Events::ExtractArgument<int32_t>(args);
             auto timeDay = Services::Events::ExtractArgument<int32_t>(args);
+            auto silentUpdate = Services::Events::ExtractArgument<int32_t>(args);
             
-            
-            uint32_t ConvertToCalendarDay(uint32_t nYear, uint32_t nMonth, uint32_t nDay);
-            uint32_t ConvertToTimeOfDay(uint32_t nHour, uint32_t nMinute, uint32_t nSecond, uint32_t nMillisecond);
-            uint32_t GetWorldTimeYear();
-            uint32_t GetWorldTimeMonth();
-            uint32_t GetWorldTimeDay();
-            uint32_t GetWorldTimeHour();
-            uint32_t GetWorldTimeMinute();
-            uint32_t GetWorldTimeSecond();
-            uint32_t GetWorldTimeMillisecond();
-            
-            
-           
+            //If server owner leaves this 0 - the entry will be added with todays date
             if (calDay == 0)
             {
                 uint32_t year = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeYear();
@@ -1397,6 +1386,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                 uint32_t day = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeDay();
                 calDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToCalendarDay(year, month, day);
             }
+            //If server owner leaves this 0 - the entry will be added with now() time
             if(timeDay == 0)
             {
                 uint32_t hour = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeHour();
@@ -1434,6 +1424,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                             if (pEntry->szPlot_Id.CStr() == tag)
                             {
                                 overwrite = i; 
+                                //Overwrite existing entry
                                 pCreature->m_pJournal->m_lstEntries[i] = newJournal;
                                 break;
                             }
@@ -1457,7 +1448,13 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                     newJournal.szName,
                                                                     newJournal.szText);
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
-                    pMessage->SendServerToPlayerJournalUpdated(pPlayer,1,newJournal.bQuestCompleted,newJournal.szName);
+                    
+                    //If no update message is desired, we can keep it silent.
+                    if(!silentUpdate)
+                    {
+                        pMessage->SendServerToPlayerJournalUpdated(pPlayer,1,newJournal.bQuestCompleted,newJournal.szName);
+                    }
+                    
                 }
                 else
                 {
