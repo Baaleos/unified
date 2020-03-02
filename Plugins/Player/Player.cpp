@@ -1430,7 +1430,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.nCalendarDay,
                                                                  newJournal.nTimeOfDay,
                                                                  newJournal.szName,
-                                                                 newJournal.szPlot_Id);
+                                                                 newJournal.szText);
                     
                     
                     pCreature->m_pJournal->m_lstEntries.Add(newJournal);
@@ -1438,7 +1438,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                     CNWSPlayerJournalQuestUpdates update;
                     update.szPlot_Id = newJournal.szPlot_Id;
                     update.flags = 1;
-                    pPlayer->m_pJournalQuest->m_lstEntries->m_lstModifications.Add(update);
+                    pPlayer->m_pJournalQuest->m_lstModifications.Add(update);
                     
                     
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
