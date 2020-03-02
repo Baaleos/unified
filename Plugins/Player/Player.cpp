@@ -1367,8 +1367,6 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             
             const auto questName = Services::Events::ExtractArgument<std::string>(args);
             const auto questText = Services::Events::ExtractArgument<std::string>(args);
-            const auto calendarDay = Services::Events::ExtractArgument<int32_t>(args);
-            const auto timeOfDay = Services::Events::ExtractArgument<int32_t>(args);
             const auto tag = Services::Events::ExtractArgument<std::string>(args);
             const auto state = Services::Events::ExtractArgument<int32_t>(args);
             const auto priority = Services::Events::ExtractArgument<int32_t>(args);
@@ -1386,10 +1384,19 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             uint32_t GetWorldTimeSecond();
             uint32_t GetWorldTimeMillisecond();
             
-            uint32_t calDay = 0x0;
-            uint32_t timeDay = 0x0;
+            uint32_t calDay = 0;
+            uint32_t timeDay = 0;
             
-            Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTime(*calDay, *timeDay);
+            uint32_t year = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeYear();
+            uint32_t month = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMonth();
+            uint32_t day = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeDay();
+            uint32_t hour = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeHour();
+            uint32_t minute = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMinute();
+            uint32_t second = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeSecond();
+            uint32_t ms = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMillisecond();
+            
+            calDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToCalendarDay(year, month, day);
+            timeDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToTimeOfDay(hour, minute, second, ms);
             
             SJournalEntry newJournal;
             newJournal.szName       = CreateCExoLocString(questName);
