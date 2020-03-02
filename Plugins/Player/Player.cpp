@@ -1391,7 +1391,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             if (pMessage)
                 {
                     //New entry added - need to update journal
-                    entries->Add(newJournal);
+                    entries.Add(newJournal);
                     pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                  newJournal.szPlot_Id,
                                                                  newJournal.nState,
