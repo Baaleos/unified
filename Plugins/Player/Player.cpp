@@ -1430,7 +1430,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.nCalendarDay,
                                                                  newJournal.nTimeOfDay,
                                                                  newJournal.szName,
-                                                                 newJournal.szPlot_Id);
+                                                                 newJournal.szText);
                     
                     
                     pCreature->m_pJournal->m_lstEntries.Add(newJournal);
