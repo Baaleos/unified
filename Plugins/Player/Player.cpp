@@ -1431,8 +1431,10 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.szName,
                                                                  newJournal.szText);
                     */
-                    retval =1; // Success
+                    
                     pCreature->m_pJournal->m_lstEntries.Add(newJournal);
+                    pMessage->SendServerToPlayerJournalFullUpdate(pPlayer);
+                    retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                 }
                 else
                 {
