@@ -1421,23 +1421,22 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             newJournal.bUpdated     = updated; 
                    
 
-                   
-            if (entries.num > 0)
-            {
-                auto pEntry = entries.element;
-                for (int i = 0; i < entries.num; i++, pEntry++)
-                {
-                    if (pEntry->szPlot_Id.CStr() == tag)
-                    {
-                        pCreature->m_pJournal->m_lstEntries.Remove(pEntry);
-                        pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
-                    }
-                }
-            }
-            
-            auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
+            auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());       
             if (pMessage)
                 {
+                    if (entries.num > 0)
+                    {
+                        auto pEntry = entries.element;
+                        for (int i = 0; i < entries.num; i++, pEntry++)
+                        {
+                            if (pEntry->szPlot_Id.CStr() == tag)
+                            {
+                                pCreature->m_pJournal->m_lstEntries.Remove(pEntry);
+                                pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
+                            }
+                        }
+                    }
+
                     //New entry added - need to update journal
                     pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                  newJournal.szPlot_Id,
