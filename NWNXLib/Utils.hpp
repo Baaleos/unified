@@ -54,6 +54,10 @@ void DestroyGameEffect(CGameEffect* pEffect);
 
 std::string ExtractLocString(CExoLocString& locStr, int32_t nID = 0, uint8_t bGender = 0);
 
+CExoLocString CreateCExoLocString(const std::string& str);
+
+
+
 template <typename T>
 T PeekMessage(CNWSMessage *pMessage, int32_t offset)
 {
@@ -70,6 +74,9 @@ void AddObjectExitAreaEvent(API::Types::ObjectID oid, API::Types::ObjectID oidAr
 void AddOnAcquireItemEvent(API::Types::ObjectID oidItem, API::Types::ObjectID oidBy, API::Types::ObjectID oidFrom, int32_t stackSize);
 void AddOnLoseItemEvent(API::Types::ObjectID oidItem, API::Types::ObjectID oidBy);
 void AddDestroyObjectEvent(API::Types::ObjectID oid);
+
+
+
 
 // Returns the SP
 int PushScriptContext(API::Types::ObjectID oid, bool valid = true);

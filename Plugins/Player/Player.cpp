@@ -1336,4 +1336,85 @@ ArgumentStack Player::SetResManOverride(ArgumentStack&& args)
     return Services::Events::Arguments();
 }
 
+
+ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
+{
+    int32_t retval = -1;
+
+    if (auto *pPlayer = player(args))
+    {
+        auto *pCreature = Globals::AppManager()->m_pServerExoApp->GetCreatureByGameObjectID(pPlayer->m_oidNWSObject);
+        
+        
+        if (pCreature && pCreature->m_pJournal)
+        {
+            auto entries = pCreature->m_pJournal->m_lstEntries;
+            
+            const auto questName = Services::Events::ExtractArgument<std::string>(args);
+            const auto questText = Services::Events::ExtractArgument<std::string>(args);
+            const auto calendarDay = Services::Events::ExtractArgument<int32_t>(args);
+            const auto timeOfDay = Services::Events::ExtractArgument<int32_t>(args);
+            const auto tag = Services::Events::ExtractArgument<std::string>(args);
+            const auto state = Services::Events::ExtractArgument<int32_t>(args);
+            const auto priority = Services::Events::ExtractArgument<int32_t>(args);
+            const auto completed = Services::Events::ExtractArgument<int32_t>(args);
+            const auto diplayed = Services::Events::ExtractArgument<int32_t>(args);
+            const auto updated = Services::Events::ExtractArgument<int32_t>(args);
+            
+            SJournalEntry newJournal;
+            newJournal.szName       = Utils::CreateCExoLocString(questName);
+            newJournal.szText       = Utils::CreateCExoLocString(questText);
+            newJournal.nCalendarDay = calendarDay;
+            newJournal.nTimeOfDay   = timeOfDay;
+            newJournal.szPlot_Id    = CExoString(tag.c_str());
+            newJournal.nState       = state;
+            newJournal.nPriority    = priority;
+            newJournal.nPictureIndex= 0; // Not implemented by bioware/beamdog  
+            newJournal.bQuestCompleted= completed; 
+            newJournal.bQuestDisplayed= diplayed; 
+            newJournal.bUpdated     = updated; 
+                    
+            if (entries.num > 0)
+            {
+                auto pEntry = entries.element;
+                for (int i = 0; i < entries.num; i++, pEntry++)
+                {
+                    if (pEntry->szPlot_Id.CStr() == tag && pEntry.nPriority == priority)
+                    {
+                        //An entry with this tag and priority exist already
+                        //Do not add a duplicate
+                        return Services::Events::Arguments(retval);
+                    }
+                }
+            }
+            auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
+            if (pMessage)
+                {
+                    //New entry added - need to update journal
+                    entries->Add(newJournal);
+                    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
+                                                                 newJournal.szPlot_Id,
+                                                                 newJournal.nState,
+                                                                 newJournal.nPriority,
+                                                                 newJournal.nPictureIndex,
+                                                                 newJournal.bQuestCompleted,
+                                                                 newJournal.nCalendarDay,
+                                                                 newJournal.nTimeOfDay,
+                                                                 newJournal.szName,
+                                                                 newJournal.szText);
+                    retval =1; // Success
+                }
+                else
+                {
+                    LOG_ERROR("Unable to get CNWSMessage");
+                }
+                
+        }
+    }
+
+    return Services::Events::Arguments(retval);
+}
+
+
+
 }
