@@ -4,6 +4,8 @@
 #include "Services/Events/Events.hpp"
 #include "Services/Hooks/Hooks.hpp"
 #include "API/ObjectVisualTransformData.hpp"
+#include "API/CExoLocString.hpp"
+#include "Utils.hpp"
 #include <map>
 #include <set>
 

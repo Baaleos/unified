@@ -34,8 +34,7 @@
 #include "Services/Events/Events.hpp"
 #include "Services/PerObjectStorage/PerObjectStorage.hpp"
 #include "Encoding.hpp"
-#include "API/CExoLocString.hpp"
-#include "Utils.hpp"
+
 
 
 using namespace NWNXLib;
