@@ -108,6 +108,7 @@ Player::Player(const Plugin::CreateParams& params)
     REGISTER(GetLanguage);
     REGISTER(SetResManOverride);
     REGISTER(AddCustomJournalEntry);
+    //REGISTER(RemoveCustomJournalEntry);
 
 #undef REGISTER
 
@@ -1351,7 +1352,6 @@ CExoLocString CreateCExoLocString(const std::string& str)
     return locStr;
 }
 
-
 ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
 {
     int32_t retval = -1;
@@ -1374,6 +1374,10 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             const auto diplayed = Services::Events::ExtractArgument<int32_t>(args);
             const auto updated = Services::Events::ExtractArgument<int32_t>(args);
             
+            const auto calDay = Services::Events::ExtractArgument<int32_t>(args);
+            const auto timeDay = Services::Events::ExtractArgument<int32_t>(args);
+            
+            
             uint32_t ConvertToCalendarDay(uint32_t nYear, uint32_t nMonth, uint32_t nDay);
             uint32_t ConvertToTimeOfDay(uint32_t nHour, uint32_t nMinute, uint32_t nSecond, uint32_t nMillisecond);
             uint32_t GetWorldTimeYear();
@@ -1384,19 +1388,24 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             uint32_t GetWorldTimeSecond();
             uint32_t GetWorldTimeMillisecond();
             
-            uint32_t calDay = 0;
-            uint32_t timeDay = 0;
             
-            uint32_t year = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeYear();
-            uint32_t month = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMonth();
-            uint32_t day = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeDay();
-            uint32_t hour = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeHour();
-            uint32_t minute = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMinute();
-            uint32_t second = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeSecond();
-            uint32_t ms = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMillisecond();
+           
+            if (calDay == 0)
+            {
+                uint32_t year = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeYear();
+                uint32_t month = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMonth();
+                uint32_t day = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeDay();
+                calDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToCalendarDay(year, month, day);
+            }
+            if(timeDay == 0)
+            {
+                uint32_t hour = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeHour();
+                uint32_t minute = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMinute();
+                uint32_t second = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeSecond();
+                uint32_t ms = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->GetWorldTimeMillisecond();
+                timeDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToTimeOfDay(hour, minute, second, ms);
+            }
             
-            calDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToCalendarDay(year, month, day);
-            timeDay = Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->ConvertToTimeOfDay(hour, minute, second, ms);
             
             SJournalEntry newJournal;
             newJournal.szName       = CreateCExoLocString(questName);
@@ -1430,18 +1439,6 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
             if (pMessage)
                 {
-                    /*CExoString szText;
-                    CExoString szName;
-                    uint32_t nCalendarDay;
-                    uint32_t nTimeOfDay;
-                    STRREF nName;
-                    uint32_t nID;
-                    BOOL bIdIsStrref;*/
-                    //auto worldEntries = Utils::GetModule()->m_pWorldJournal;
-                    //CWorldJournalEntry newWorldJournal;
-                    
-                    
-                    
                     //New entry added - need to update journal
                     pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                  newJournal.szPlot_Id,
@@ -1453,8 +1450,6 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.nTimeOfDay,
                                                                  newJournal.szName,
                                                                  newJournal.szText);
-                    
-                    
                     pCreature->m_pJournal->m_lstEntries.Add(newJournal);
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                 }
@@ -1468,6 +1463,62 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
 
     return Services::Events::Arguments(retval);
 }
+
+/*
+ArgumentStack Player::RemoveCustomJournalEntry(ArgumentStack&& args)
+{
+    int32_t retval = -1;
+    
+    if (auto *pPlayer = player(args))
+    {
+        auto *pCreature = Globals::AppManager()->m_pServerExoApp->GetCreatureByGameObjectID(pPlayer->m_oidNWSObject);
+        
+        
+        if (pCreature && pCreature->m_pJournal)
+        {
+            auto entries = pCreature->m_pJournal->m_lstEntries;
+            
+            
+            const auto tag = Services::Events::ExtractArgument<std::string>(args);
+            
+            SJournalEntry entryToRemove;
+                    
+            if (entries.num > 0)
+            {
+                auto pEntry = entries.element;
+                for (int i = 0; i < entries.num; i++, pEntry++)
+                {
+                    if (pEntry->szPlot_Id.CStr() == tag)
+                    {
+                        entryToRemove = pEntry;
+                        retval = 1;
+                        break;
+                    }
+                }
+            }
+            
+            //No sense in sending the update message if we did not find and remove the journal entry
+            if(retval == 1)
+            {
+                auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
+                if (pMessage)
+                    {
+                        //New entry added - need to update journal
+                        pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
+                        pCreature->m_pJournal->m_lstEntries.Remove(entryToRemove);
+                        retval =pCreature->m_pJournal->m_lstEntries.num; // Success - lowest retVal should ever become on success is 0 - for a clean journal
+                    }
+                    else
+                    {
+                        LOG_ERROR("Unable to get CNWSMessage");
+                    }
+            }
+                
+        }
+    }
+
+    return Services::Events::Arguments(retval);
+}*/
 
 
 }

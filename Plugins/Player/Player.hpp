@@ -53,6 +53,7 @@ private:
     ArgumentStack GetLanguage                       (ArgumentStack&& args);
     ArgumentStack SetResManOverride                 (ArgumentStack&& args);
     ArgumentStack AddCustomJournalEntry             (ArgumentStack&& args);
+    //ArgumentStack RemoveCustomJournalEntry          (ArgumentStack&& args);
 
     CNWSPlayer *player(ArgumentStack& args);
 
