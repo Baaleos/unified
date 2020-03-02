@@ -1374,8 +1374,8 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             const auto diplayed = Services::Events::ExtractArgument<int32_t>(args);
             const auto updated = Services::Events::ExtractArgument<int32_t>(args);
             
-            const auto calDay = Services::Events::ExtractArgument<int32_t>(args);
-            const auto timeDay = Services::Events::ExtractArgument<int32_t>(args);
+            auto calDay = Services::Events::ExtractArgument<int32_t>(args);
+            auto timeDay = Services::Events::ExtractArgument<int32_t>(args);
             
             
             uint32_t ConvertToCalendarDay(uint32_t nYear, uint32_t nMonth, uint32_t nDay);
