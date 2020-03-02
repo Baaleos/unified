@@ -1424,6 +1424,8 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());       
             if (pMessage)
                 {
+                 
+                    int overwrite = -1;
                     if (entries.num > 0)
                     {
                         auto pEntry = entries.element;
@@ -1431,25 +1433,29 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                         {
                             if (pEntry->szPlot_Id.CStr() == tag)
                             {
-                                const auto pEntryToRemove = pEntry;
-                                pCreature->m_pJournal->m_lstEntries.Remove(pEntryToRemove);
-                                pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
+                                overwrite = i; 
+                                pCreature->m_pJournal->m_lstEntries[i] = newJournal;
+                                break;
                             }
                         }
                     }
-
-                    //New entry added - need to update journal
-                    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
-                                                                 newJournal.szPlot_Id,
-                                                                 newJournal.nState,
-                                                                 newJournal.nPriority,
-                                                                 newJournal.nPictureIndex,
-                                                                 newJournal.bQuestCompleted,
-                                                                 newJournal.nCalendarDay,
-                                                                 newJournal.nTimeOfDay,
-                                                                 newJournal.szName,
-                                                                 newJournal.szText);
-                    pCreature->m_pJournal->m_lstEntries.Add(newJournal);
+                    //If we have overwritten an existing entry - we don't need to perform an add -
+                    //Instead we perform an update only
+                    if(overwrite == -1)
+                    {
+                        //New entry added - need to update journal
+                        pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
+                                                                    newJournal.szPlot_Id,
+                                                                    newJournal.nState,
+                                                                    newJournal.nPriority,
+                                                                    newJournal.nPictureIndex,
+                                                                    newJournal.bQuestCompleted,
+                                                                    newJournal.nCalendarDay,
+                                                                    newJournal.nTimeOfDay,
+                                                                    newJournal.szName,
+                                                                    newJournal.szText);
+                        pCreature->m_pJournal->m_lstEntries.Add(newJournal);
+                    }
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                     pMessage->SendServerToPlayerJournalUpdated(pPlayer,1,newJournal.bQuestCompleted,CreateCExoLocString(tag.c_str()));
                 }
