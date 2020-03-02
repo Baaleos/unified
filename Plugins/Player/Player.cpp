@@ -1424,7 +1424,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());       
             if (pMessage)
                 {
-                    /*if (entries.num > 0)
+                    if (entries.num > 0)
                     {
                         auto pEntry = entries.element;
                         for (int i = 0; i < entries.num; i++, pEntry++)
@@ -1435,7 +1435,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                 pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
                             }
                         }
-                    }*/
+                    }
 
                     //New entry added - need to update journal
                     pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
