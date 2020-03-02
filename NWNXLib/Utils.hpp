@@ -52,7 +52,6 @@ CNWSScriptVarTable *GetScriptVarTable(CGameObject *pObject);
 void DestroyGameEffect(CGameEffect* pEffect);
 
 std::string ExtractLocString(CExoLocString& locStr, int32_t nID = 0, uint8_t bGender = 0);
-CExoLocString CreateCExoLocString(const std::string& str);
 
 template <typename T>
 T PeekMessage(CNWSMessage *pMessage, int32_t offset)

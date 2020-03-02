@@ -1341,6 +1341,15 @@ ArgumentStack Player::SetResManOverride(ArgumentStack&& args)
     return Services::Events::Arguments();
 }
 
+
+CExoLocString CreateCExoLocString(const std::string& str)
+{
+    CExoLocString locStr;
+    locStr.AddString(0,CExoString(str.c_str()),0);
+    return locStr;
+}
+
+
 ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
 {
     int32_t retval = -1;
@@ -1366,8 +1375,8 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             const auto updated = Services::Events::ExtractArgument<int32_t>(args);
             
             SJournalEntry newJournal;
-            newJournal.szName       = Utils::CreateCExoLocString(questName);
-            newJournal.szText       = Utils::CreateCExoLocString(questText);
+            newJournal.szName       = CreateCExoLocString(questName);
+            newJournal.szText       = CreateCExoLocString(questText);
             newJournal.nCalendarDay = calendarDay;
             newJournal.nTimeOfDay   = timeOfDay;
             newJournal.szPlot_Id    = CExoString(tag.c_str());
