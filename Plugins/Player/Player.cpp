@@ -1419,22 +1419,21 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
             newJournal.bQuestCompleted= completed; 
             newJournal.bQuestDisplayed= diplayed; 
             newJournal.bUpdated     = updated; 
-                    
+                   
+
+                   
             if (entries.num > 0)
             {
                 auto pEntry = entries.element;
                 for (int i = 0; i < entries.num; i++, pEntry++)
                 {
-                    if (pEntry->szPlot_Id.CStr() == tag && pEntry->nPriority == priority)
+                    if (pEntry->szPlot_Id.CStr() == tag)
                     {
-                        //An entry with this tag and priority exist already
-                        //Do not add a duplicate
-                        return Services::Events::Arguments(retval);
+                        pCreature->m_pJournal->m_lstEntries.Remove(pEntry);
+                        pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
                     }
                 }
             }
-            
-            
             
             auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
             if (pMessage)
