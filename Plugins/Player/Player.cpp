@@ -22,7 +22,8 @@
 #include "API/CTwoDimArrays.hpp"
 #include "API/CNWSModule.hpp"
 #include "API/CNWSJournal.hpp"
-//#include "API/CWorldJournalEntry.hpp"
+#include "API/CNWSPlayerJournalQuest.hpp"
+#include "API/CNWSPlayerJournalQuestUpdates.hpp"
 #include "API/CNWSWaypoint.hpp"
 #include "API/CNetLayer.hpp"
 #include "API/CNetLayerPlayerInfo.hpp"
@@ -1420,7 +1421,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                     
                     
                     //New entry added - need to update journal
-                /*    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
+                    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                  newJournal.szPlot_Id,
                                                                  newJournal.nState,
                                                                  newJournal.nPriority,
@@ -1429,10 +1430,18 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.nCalendarDay,
                                                                  newJournal.nTimeOfDay,
                                                                  newJournal.szName,
-                                                                 newJournal.szText);
-                    */
-                    retval =1; // Success
+                                                                 newJournal.szPlot_Id);
+                    
+                    
                     pCreature->m_pJournal->m_lstEntries.Add(newJournal);
+                    
+                    CNWSPlayerJournalQuestUpdates update;
+                    update.szPlot_Id = newJournal.szPlot_Id;
+                    update.flags = 1;
+                    pPlayer->m_pJournalQuest->m_lstEntries->m_lstModifications.Add(update);
+                    
+                    
+                    retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                 }
                 else
                 {
