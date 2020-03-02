@@ -22,6 +22,7 @@
 #include "API/CTwoDimArrays.hpp"
 #include "API/CNWSModule.hpp"
 #include "API/CNWSJournal.hpp"
+//#include "API/CWorldJournalEntry.hpp"
 #include "API/CNWSWaypoint.hpp"
 #include "API/CNetLayer.hpp"
 #include "API/CNetLayerPlayerInfo.hpp"
@@ -1400,12 +1401,26 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                     }
                 }
             }
+            
+            
+            
             auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
             if (pMessage)
                 {
+                    /*CExoString szText;
+                    CExoString szName;
+                    uint32_t nCalendarDay;
+                    uint32_t nTimeOfDay;
+                    STRREF nName;
+                    uint32_t nID;
+                    BOOL bIdIsStrref;*/
+                    //auto worldEntries = Utils::GetModule()->m_pWorldJournal;
+                    //CWorldJournalEntry newWorldJournal;
+                    
+                    
+                    
                     //New entry added - need to update journal
-                    entries.Add(newJournal);
-                    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
+                /*    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                  newJournal.szPlot_Id,
                                                                  newJournal.nState,
                                                                  newJournal.nPriority,
@@ -1415,8 +1430,9 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                  newJournal.nTimeOfDay,
                                                                  newJournal.szName,
                                                                  newJournal.szText);
+                    */
                     retval =1; // Success
-                    pCreature->m_pJournal->m_lstEntries = entries;
+                    pCreature->m_pJournal->m_lstEntries.Add(newJournal);
                 }
                 else
                 {
