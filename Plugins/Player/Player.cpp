@@ -1379,7 +1379,7 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                 auto pEntry = entries.element;
                 for (int i = 0; i < entries.num; i++, pEntry++)
                 {
-                    if (pEntry->szPlot_Id.CStr() == tag && pEntry.nPriority == priority)
+                    if (pEntry->szPlot_Id.CStr() == tag && pEntry->nPriority == priority)
                     {
                         //An entry with this tag and priority exist already
                         //Do not add a duplicate
