@@ -1443,8 +1443,10 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                     //Instead we perform an update only
                     if(overwrite == -1)
                     {
-                        //New entry added - need to update journal
-                        pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
+                        //New entry added
+                        pCreature->m_pJournal->m_lstEntries.Add(newJournal);
+                    }
+                    pMessage->SendServerToPlayerJournalAddQuest(pPlayer,
                                                                     newJournal.szPlot_Id,
                                                                     newJournal.nState,
                                                                     newJournal.nPriority,
@@ -1454,8 +1456,6 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
                                                                     newJournal.nTimeOfDay,
                                                                     newJournal.szName,
                                                                     newJournal.szText);
-                        pCreature->m_pJournal->m_lstEntries.Add(newJournal);
-                    }
                     retval =pCreature->m_pJournal->m_lstEntries.num; // Success
                     pMessage->SendServerToPlayerJournalUpdated(pPlayer,1,newJournal.bQuestCompleted,CreateCExoLocString(tag.c_str()));
                 }
