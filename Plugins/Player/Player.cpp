@@ -108,7 +108,7 @@ Player::Player(const Plugin::CreateParams& params)
     REGISTER(GetLanguage);
     REGISTER(SetResManOverride);
     REGISTER(AddCustomJournalEntry);
-    //REGISTER(RemoveCustomJournalEntry);
+    REGISTER(GetJournalEntry);
 
 #undef REGISTER
 
@@ -1467,61 +1467,53 @@ ArgumentStack Player::AddCustomJournalEntry(ArgumentStack&& args)
     return Services::Events::Arguments(retval);
 }
 
-/*
-ArgumentStack Player::RemoveCustomJournalEntry(ArgumentStack&& args)
+ArgumentStack Player::GetJournalEntry(ArgumentStack&& args)
 {
-    int32_t retval = -1;
-    
+    SJournalEntry lastJournalEntry;
+    int found = -1;
     if (auto *pPlayer = player(args))
     {
         auto *pCreature = Globals::AppManager()->m_pServerExoApp->GetCreatureByGameObjectID(pPlayer->m_oidNWSObject);
-        
-        
         if (pCreature && pCreature->m_pJournal)
         {
             auto entries = pCreature->m_pJournal->m_lstEntries;
-            
-            
             const auto tag = Services::Events::ExtractArgument<std::string>(args);
-            
-            SJournalEntry entryToRemove;
-                    
             if (entries.num > 0)
             {
                 auto pEntry = entries.element;
                 for (int i = 0; i < entries.num; i++, pEntry++)
                 {
                     if (pEntry->szPlot_Id.CStr() == tag)
-                    {
-                        entryToRemove = pEntry;
-                        retval = 1;
-                        break;
-                    }
+                        {
+                            lastJournalEntry = entries[i];
+                            found = i;
+                        }
                 }
-            }
-            
-            //No sense in sending the update message if we did not find and remove the journal entry
-            if(retval == 1)
-            {
-                auto *pMessage = static_cast<CNWSMessage*>(Globals::AppManager()->m_pServerExoApp->GetNWSMessage());
-                if (pMessage)
-                    {
-                        //New entry added - need to update journal
-                        pMessage->SendServerToPlayerJournalRemoveQuest(pPlayer,tag);
-                        pCreature->m_pJournal->m_lstEntries.Remove(entryToRemove);
-                        retval =pCreature->m_pJournal->m_lstEntries.num; // Success - lowest retVal should ever become on success is 0 - for a clean journal
-                    }
-                    else
-                    {
-                        LOG_ERROR("Unable to get CNWSMessage");
-                    }
-            }
-                
+            }        
         }
     }
+    if(found == -1)
+    {
+            // Not found - 
+            //Lets not risk an exception 
+            return Services::Events::Arguments(found);
+    }
+    return Services::Events::Arguments
+    (
+        (int32_t)lastJournalEntry.bUpdated,
+        (int32_t)lastJournalEntry.bQuestDisplayed,
+        (int32_t)lastJournalEntry.bQuestCompleted,
+        (int32_t)lastJournalEntry.nPriority,
+        (int32_t)lastJournalEntry.nState,
+        std::string(lastJournalEntry.szPlot_Id.CStr()),
+        (int32_t)lastJournalEntry.nTimeOfDay,
+        (int32_t)lastJournalEntry.nCalendarDay,
+        std::string(Utils::ExtractLocString(lastJournalEntry.szName)),
+        std::string(Utils::ExtractLocString(lastJournalEntry.szText))  
+    );      
+}
 
-    return Services::Events::Arguments(retval);
-}*/
+
 
 
 }
