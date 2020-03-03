@@ -1500,16 +1500,16 @@ ArgumentStack Player::GetJournalEntry(ArgumentStack&& args)
     }
     return Services::Events::Arguments
     (
-        (int32_t)lastJournalEntry.bUpdated,
-        (int32_t)lastJournalEntry.bQuestDisplayed,
-        (int32_t)lastJournalEntry.bQuestCompleted,
-        (int32_t)lastJournalEntry.nPriority,
-        (int32_t)lastJournalEntry.nState,
-        std::string(lastJournalEntry.szPlot_Id.CStr()),
-        (int32_t)lastJournalEntry.nTimeOfDay,
-        (int32_t)lastJournalEntry.nCalendarDay,
+        std::string(Utils::ExtractLocString(lastJournalEntry.szText)),  
         std::string(Utils::ExtractLocString(lastJournalEntry.szName)),
-        std::string(Utils::ExtractLocString(lastJournalEntry.szText))  
+        (int32_t)lastJournalEntry.nCalendarDay,
+        (int32_t)lastJournalEntry.nTimeOfDay,
+        std::string(lastJournalEntry.szPlot_Id.CStr()),            
+        (int32_t)lastJournalEntry.nState,
+        (int32_t)lastJournalEntry.nPriority,                    
+        (int32_t)lastJournalEntry.bQuestCompleted,
+        (int32_t)lastJournalEntry.bQuestDisplayed,
+        (int32_t)lastJournalEntry.bUpdated 
     );      
 }
 
