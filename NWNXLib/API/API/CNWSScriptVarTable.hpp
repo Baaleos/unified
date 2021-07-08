@@ -1,10 +1,11 @@
 #pragma once
 #include "nwn_api.hpp"
 
-#include "CExoArrayList.hpp"
 #include "CExoString.hpp"
 #include "CNWSScriptVar.hpp"
 #include "CScriptLocation.hpp"
+#include "CassowarySolverEngineStructure.hpp"
+#include <unordered_map>
 
 
 #ifdef NWN_API_PROLOGUE
@@ -12,6 +13,7 @@ NWN_API_PROLOGUE(CNWSScriptVarTable)
 #endif
 
 struct CNWSCreature;
+struct CNWSScriptVar;
 struct CResGFF;
 struct CResStruct;
 
@@ -22,25 +24,27 @@ typedef uint32_t OBJECT_ID;
 
 struct CNWSScriptVarTable
 {
-    CExoArrayList<CNWSScriptVar> m_lVarList;
+    std::unordered_map<CExoString, CNWSScriptVar> m_vars;
     CNWSCreature * m_pCreature;
 
-    ~CNWSScriptVarTable();
     int32_t GetInt(CExoString & sVarName);
     float GetFloat(CExoString & sVarName);
     CExoString GetString(CExoString & sVarName);
     OBJECT_ID GetObject(CExoString & sVarName);
     CScriptLocation GetLocation(CExoString & sVarName);
+    CassowarySolverEngineStructure GetCswy(CExoString & sVarName);
     void SetInt(CExoString & sVarName, int32_t nValue, BOOL bLoading = false);
     void SetFloat(CExoString & sVarName, float fValue);
     void SetString(CExoString & sVarName, CExoString & sValue);
     void SetObject(CExoString & sVarName, OBJECT_ID oValue);
     void SetLocation(CExoString & sVarName, CScriptLocation lValue);
+    void SetCswy(CExoString & sVarName, CassowarySolverEngineStructure cSolver);
     void DestroyInt(CExoString & sVarName);
     void DestroyFloat(CExoString & sVarName);
     void DestroyString(CExoString & sVarName);
     void DestroyObject(CExoString & sVarName);
     void DestroyLocation(CExoString & sVarName);
+    void DestroyCswy(CExoString & sVarName);
     void LoadVarTable(CResGFF * pRes, CResStruct * pStruct);
     void SaveVarTable(CResGFF * pRes, CResStruct * pStruct);
     CNWSScriptVar * MatchIndex(CExoString & sVarName, uint32_t nVarType, BOOL bCreate);

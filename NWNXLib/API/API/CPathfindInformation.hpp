@@ -1,7 +1,9 @@
 #pragma once
 #include "nwn_api.hpp"
 
+#include "CNWGridSearchPath.hpp"
 #include "Vector.hpp"
+#include "Vector2.hpp"
 
 
 #ifdef NWN_API_PROLOGUE
@@ -41,7 +43,7 @@ struct CPathfindInformation
     float m_fNewPointEndY;
     float m_fNewPointEndZ;
     float m_fPointTolerance;
-    int32_t m_nStepTolerance;
+    int32_t m_nGridStepTolerance;
     OBJECT_ID m_oidNewPointEndArea;
     float m_fNewPointStartX;
     float m_fNewPointStartY;
@@ -82,20 +84,14 @@ struct CPathfindInformation
     int32_t m_nWalkedPathCutPoints;
     Vector m_vWalkedPathCutNewLastPoint;
     Vector m_vWalkedPathCutNewLastOrientation;
-    int32_t m_nGridStartLocationX;
-    int32_t m_nGridStartLocationY;
-    int32_t m_nGridStartLocationZ;
-    Vector m_vGridZeroLocation;
-    Vector m_vGridStepX;
-    Vector m_vGridStepY;
-    Vector m_vGridStepZ;
+    int32_t m_nGridSearchTargetStepDistance;
+    Vector2 m_vGridSearchZeroLocation;
+    Vector2 m_vGridSearchStepX;
+    Vector2 m_vGridSearchStepY;
     int32_t * m_pnGridStepsArray;
     int32_t m_nGridStepsTaken;
-    float m_fGridSearchObjectDistance;
-    int32_t m_nGridSearchLastDistance;
-    void * m_pGridSearchLastTransTable;
-    Vector m_vGridSearchLastStartPoint;
-    Vector m_vGridSearchLastEndPoint;
+    int32_t m_nGridSearchLimit;
+    Vector2 m_vGridSearchStartPoint;
     int32_t m_nPathToClosestPointSize;
     int32_t * m_pnPathToClosestPointArray;
     int32_t m_nPathToClosestPointDistance;
@@ -103,6 +99,14 @@ struct CPathfindInformation
     BOOL m_bWalkStraightLineOnly;
     int32_t m_nPlotPathInAreaResult;
     uint8_t m_nTileSearchedCount;
+    char * m_bGridPointsSearchedArray;
+    int32_t m_nGridPointsSearchedOffsetX;
+    int32_t m_nGridPointsSearchedOffsetY;
+    uint64_t m_nGridSearchTimerStart;
+    uint64_t m_nGridSearchTimeSlice;
+    int32_t * * m_pnGridSearchPathStepsArray;
+    int32_t m_nGridSearchActivePaths;
+    CNWGridSearchPath * m_nGridSearchPath;
 
     CPathfindInformation();
     ~CPathfindInformation();
@@ -121,7 +125,16 @@ struct CPathfindInformation
     void SetFirstTileFValueAlternatives(int32_t level, int32_t nCurrentAlternative, int32_t nAlternatives, CPathfindInfoIntraTileSuccessors * pSuccessors);
     void CreateFirstTileFValueAlternatives(int32_t nSize);
     void DeleteFirstTileFValueAlternatives();
-    void ComputeStepTolerance();
+    float GetGridStepSize();
+    bool GetGridPointSearched(int32_t nX, int32_t nY);
+    void SetGridPointSearched(int32_t nX, int32_t nY, bool bSet);
+    int32_t CreateGridSearchPath();
+    void AddToGridSearchPath(int32_t nID, int32_t nX, int32_t nY, int32_t nStepSize);
+    CNWGridSearchPath GetGridSearchPathInfo(int32_t nID);
+    void SetGridSearchPathInfo(int32_t nID, CNWGridSearchPath nGridSearch);
+    int32_t GetGridSearchActivePaths();
+    void SetGridSearchActivePaths(int32_t nCount);
+    void ComputeGridStepTolerance();
 
 
 #ifdef NWN_CLASS_EXTENSION_CPathfindInformation

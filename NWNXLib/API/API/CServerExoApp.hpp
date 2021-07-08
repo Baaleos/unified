@@ -1,7 +1,7 @@
 #pragma once
 #include "nwn_api.hpp"
 
-#include "AurList.hpp"
+#include "CExoArrayList.hpp"
 #include "CBaseExoApp.hpp"
 #include "CExoArrayList.hpp"
 #include "CExoLocString.hpp"
@@ -36,6 +36,9 @@ struct CServerAIMaster;
 struct CServerExoAppInternal;
 struct CWorldTimer;
 
+namespace NWSync {
+struct Advertisement; // NWSyncAdvertisement
+}
 
 typedef int BOOL;
 typedef uint32_t OBJECT_ID;
@@ -56,7 +59,6 @@ struct CServerExoApp : CBaseExoApp
     void RemovePCFromWorld(CNWSPlayer * pPlayer);
     void Shutdown(BOOL bWarnLocals, BOOL bFromMessage = false);
     void SetGameSpyReporting(BOOL bEnabled);
-    BOOL GetIniFileName(CExoString & sName);
     class CServerInfo * GetServerInfo();
     CExoLocString GetModuleDescription();
     void GetExtendedServerInfo(class CExtendedServerInfo * pInfo);
@@ -105,7 +107,7 @@ struct CServerExoApp : CBaseExoApp
     CServerAIMaster * GetServerAIMaster();
     void * GetSysAdminList();
     void * GetPlayerList();
-    void * GetNWSMessage();
+    class CNWSMessage * GetNWSMessage();
     CNetLayer * GetNetLayer();
     class CNWPlaceMeshManager * GetPlaceMeshManager();
     int16_t GetServerMode();
@@ -117,9 +119,8 @@ struct CServerExoApp : CBaseExoApp
     CWorldTimer * GetPauseTimer();
     BOOL HandleMessage(uint32_t nPlayerId, uint8_t * pData, uint32_t dwSize, BOOL bRawMessage);
     BOOL Initialize();
-    void LoadAliases();
     BOOL UnloadModule();
-    BOOL LoadModule(CExoString moduleResRef, BOOL bIsSaveGame = false, CNWSPlayer * pPlayer = nullptr, int32_t sourceType = 0);
+    BOOL LoadModule(CExoString moduleResRef, CUUID uuidOverride, BOOL bIsSaveGame, CNWSPlayer * pPlayer, int32_t sourceType, const NWSync::Advertisement & nwsyncModuleSourceAdvert);
     BOOL RunModule();
     CExoString GetPlayerListString();
     CExoString GetBannedListString();
@@ -142,7 +143,7 @@ struct CServerExoApp : CBaseExoApp
     BOOL GetPauseState(uint8_t nState);
     uint8_t GetActivePauseState();
     void SetPauseState(uint8_t nState, BOOL bPause);
-    AurList<OBJECT_ID> * GetActiveExclusionList();
+    CExoArrayList<OBJECT_ID> * GetActiveExclusionList();
     void AddToExclusionList(OBJECT_ID oidExclude, uint8_t nList);
     void RemoveFromExclusionList(OBJECT_ID oidExclude, uint8_t nList);
     BOOL IsOnActiveExclusionList(OBJECT_ID oidExclude);

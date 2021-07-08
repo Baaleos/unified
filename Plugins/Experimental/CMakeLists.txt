@@ -1,4 +1,5 @@
 add_plugin(Experimental
-        "Experimental.cpp"
-        "Experimentals/SuppressPlayerLoginInfo.cpp"
-)
+    "AdjustReputationFix.cpp"
+    "DisableLevelUpValidation.cpp"
+    "SuppressPlayerLoginInfo.cpp"
+    "UnhardcodeRangerDualWield.cpp")

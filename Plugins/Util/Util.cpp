@@ -1,11 +1,9 @@
-#include "Util.hpp"
+#include "nwnx.hpp"
 
-#include "API/Constants.hpp"
-#include "API/Globals.hpp"
+#include "API/CExoBase.hpp"
 #include "API/C2DA.hpp"
 #include "API/CNWRules.hpp"
 #include "API/CTwoDimArrays.hpp"
-#include "API/CResRef.hpp"
 #include "API/CExoResMan.hpp"
 #include "API/CExoStringList.hpp"
 #include "API/CVirtualMachine.hpp"
@@ -17,178 +15,127 @@
 #include "API/CGameObjectArray.hpp"
 #include "API/CScriptCompiler.hpp"
 #include "API/CExoFile.hpp"
-#include "API/Functions.hpp"
-#include "Utils.hpp"
-#include "Services/Config/Config.hpp"
-#include "Services/Commands/Commands.hpp"
+#include "API/CNWSDoor.hpp"
+#include "API/CResStruct.hpp"
+#include "API/CResGFF.hpp"
+#include "API/CNWSArea.hpp"
+#include "API/CNWSModule.hpp"
 
 #include <string>
 #include <cstdio>
 #include <regex>
-
+#include <cmath>
+#include <chrono>
+#include <unistd.h>
 
 using namespace NWNXLib;
 using namespace NWNXLib::API;
 
-static Util::Util* g_plugin;
+static int32_t s_tickCount;
+static size_t s_resRefIndex;
+static std::vector<std::string> s_listResRefs;
+static std::unique_ptr<CScriptCompiler> s_scriptCompiler;
+static std::unordered_map<std::string, std::string> s_serverConsoleCommandMap;
 
-NWNX_PLUGIN_ENTRY Plugin::Info* PluginInfo()
-{
-    return new Plugin::Info
+static auto s_id = MessageBus::Subscribe("NWNX_CORE_SIGNAL",
+    [](const std::vector<std::string>& message)
     {
-        "Util",
-        "Miscellaneous utility functions",
-        "sherincall",
-        "sherincall@gmail.com",
-        1,
-        true
-    };
-}
-
-NWNX_PLUGIN_ENTRY Plugin* PluginLoad(Plugin::CreateParams params)
-{
-    g_plugin = new Util::Util(params);
-    return g_plugin;
-}
-
-
-namespace Util {
-
-Util::Util(const Plugin::CreateParams& params)
-    : Plugin(params),
-      m_scriptCompiler(nullptr)
-{
-#define REGISTER(func) \
-    GetServices()->m_events->RegisterEvent(#func, \
-        [this](ArgumentStack&& args){ return func(std::move(args)); })
-
-    REGISTER(GetCurrentScriptName);
-    REGISTER(GetAsciiTableString);
-    REGISTER(Hash);
-    REGISTER(GetCustomToken);
-    REGISTER(EffectTypeCast);
-    REGISTER(StripColors);
-    REGISTER(IsValidResRef);
-    REGISTER(GetEnvironmentVariable);
-    REGISTER(GetMinutesPerHour);
-    REGISTER(SetMinutesPerHour);
-    REGISTER(EncodeStringForURL);
-    REGISTER(Get2DARowCount);
-    REGISTER(GetFirstResRef);
-    REGISTER(GetNextResRef);
-    REGISTER(GetServerTicksPerSecond);
-    REGISTER(GetLastCreatedObject);
-    REGISTER(AddScript);
-    REGISTER(GetNSSContents);
-    REGISTER(AddNSSFile);
-    REGISTER(RemoveNWNXResourceFile);
-    REGISTER(SetInstructionLimit);
-    REGISTER(RegisterServerConsoleCommand);
-    REGISTER(UnregisterServerConsoleCommand);
-
-#undef REGISTER
-
-    GetServices()->m_hooks->RequestSharedHook<API::Functions::_ZN21CServerExoAppInternal8MainLoopEv, int32_t>(
-            +[](bool before, CServerExoAppInternal*)
+        if (message[0] == "ON_MODULE_LOAD_FINISH")
+        {
+            if (auto startScript = Config::Get<std::string>("PRE_MODULE_START_SCRIPT"))
             {
-                static int ticks;
-                static time_t previous;
+                LOG_NOTICE("Running module start script: %s", *startScript);
+                Utils::ExecuteScript(*startScript, 0);
+            }
 
-                if (!before)
-                {
-                    time_t current = time(nullptr);
-
-                    if (current == previous)
-                    {
-                        ticks++;
-                    }
-                    else
-                    {
-                        g_plugin->m_tickCount = ticks;
-                        previous = current;
-                        ticks = 1;
-                    }
-                }
-            });
-
-    GetServices()->m_hooks->RequestSharedHook<API::Functions::_ZN10CNWSModule16LoadModuleFinishEv, uint32_t>(
-            +[](bool before, CNWSModule*)
+            if (auto startChunk = Config::Get<std::string>("PRE_MODULE_START_SCRIPT_CHUNK"))
             {
-                if (before)
+                LOG_NOTICE("Running module start script chunk: %s", *startChunk);
+
+                bool bWrapIntoMain = startChunk->find("void main()") == std::string::npos;
+                if (Globals::VirtualMachine()->RunScriptChunk(*startChunk, 0, true, bWrapIntoMain))
                 {
-                    if (auto startScript = g_plugin->GetServices()->m_config->Get<std::string>("PRE_MODULE_START_SCRIPT"))
-                    {
-                        LOG_NOTICE("Running module start script: %s", *startScript);
-                        Utils::ExecuteScript(*startScript, 0);
-                    }
-
-                    if (auto startChunk = g_plugin->GetServices()->m_config->Get<std::string>("PRE_MODULE_START_SCRIPT_CHUNK"))
-                    {
-                        LOG_NOTICE("Running module start script chunk: %s", *startChunk);
-
-                        bool bWrapIntoMain = startChunk->find("void main()") == std::string::npos;
-                        if (Globals::VirtualMachine()->RunScriptChunk(*startChunk, 0, true, bWrapIntoMain))
-                        {
-                            LOG_ERROR("Failed to run module start script chunk with error: %s",
-                                    Globals::VirtualMachine()->m_pJitCompiler->m_sCapturedError.CStr());
-                        }
-                    }
+                    LOG_ERROR("Failed to run module start script chunk with error: %s",
+                    Globals::VirtualMachine()->m_pJitCompiler->m_sCapturedError.CStr());
                 }
-            });
-}
+            }
+        }
+    });
 
-Util::~Util()
+static Hooks::Hook s_MainLoopHook = Hooks::HookFunction(API::Functions::_ZN21CServerExoAppInternal8MainLoopEv,
+    (void*)+[](CServerExoAppInternal *pServerExoAppInternal) -> int32_t
+    {
+        static int ticks;
+        static time_t previous;
+
+        auto retVal = s_MainLoopHook->CallOriginal<int32_t>(pServerExoAppInternal);
+
+        time_t current = time(nullptr);
+
+        if (current == previous)
+        {
+            ticks++;
+        }
+        else
+        {
+            s_tickCount = ticks;
+            previous = current;
+            ticks = 1;
+        }
+
+        return retVal;
+    }, Hooks::Order::Earliest);
+
+
+NWNX_EXPORT ArgumentStack GetCurrentScriptName(ArgumentStack&& args)
 {
+    std::string retVal;
 
-}
-
-ArgumentStack Util::GetCurrentScriptName(ArgumentStack&& args)
-{
-    std::string retval = "";
-
-    const auto depth = Services::Events::ExtractArgument<int32_t>(args);
+    const auto depth = args.extract<int32_t>();
 
     auto *pVM = API::Globals::VirtualMachine();
-    if (pVM && pVM->m_pVirtualMachineScript && pVM->m_nRecursionLevel >= 0 && pVM->m_nRecursionLevel >= depth)
+    if (pVM && pVM->m_nRecursionLevel >= 0 && pVM->m_nRecursionLevel >= depth)
     {
         auto& script = pVM->m_pVirtualMachineScript[pVM->m_nRecursionLevel - depth];
         if (!script.m_sScriptName.IsEmpty())
-            retval = script.m_sScriptName.CStr();
+            retVal = script.m_sScriptName.CStr();
     }
 
-    return Services::Events::Arguments(retval);
+    return retVal;
 }
 
-ArgumentStack Util::GetAsciiTableString(ArgumentStack&&)
+NWNX_EXPORT ArgumentStack GetAsciiTableString(ArgumentStack&&)
 {
-    static char table[256];
+    static char table[257];
 
     if (table[0] == 0)
     {
         table[0] = 1; // Can't pass NULL or it will terminate the string
-        for (size_t i = 1; i < sizeof(table); i++)
+        for (size_t i = 1; i <= 0xFF; i++)
             table[i] = i;
     }
 
-    return Services::Events::Arguments(std::string(table));
+    return std::string(table);
 }
 
-ArgumentStack Util::Hash(ArgumentStack&& args)
+namespace { // temporary fix for conflict with CExoResMan::Hash::SHA1
+NWNX_EXPORT ArgumentStack Hash(ArgumentStack&& args)
 {
-    const auto str = Services::Events::ExtractArgument<std::string>(args);
-    return Services::Events::Arguments((int32_t)std::hash<std::string>{}(str));
+    const auto str = args.extract<std::string>();
+    return (int32_t)std::hash<std::string>{}(str);
+}
 }
 
-ArgumentStack Util::GetCustomToken(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetCustomToken(ArgumentStack&& args)
 {
     std::string retVal;
 
-    const auto tokenNumber = Services::Events::ExtractArgument<int32_t>(args);
+    const auto tokenNumber = args.extract<int32_t>();
       ASSERT_OR_THROW(tokenNumber >= 0);
 
     auto *pTlk = API::Globals::TlkTable();
     auto *pTokens = pTlk->m_pTokensCustom;
-    int numTokens = pTlk->m_nTokensCustom;
+    uint32_t numTokens = pTlk->m_nTokensCustom;
 
     CTlkTableTokenCustom token;
     token.m_nNumber = tokenNumber;
@@ -201,62 +148,62 @@ ArgumentStack Util::GetCustomToken(ArgumentStack&& args)
         retVal = foundToken->m_sValue.CStr();
     }
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::EffectTypeCast(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack EffectTypeCast(ArgumentStack&& args)
 {
-    return Services::Events::Arguments(Services::Events::ExtractArgument<CGameEffect*>(args));
+    return args.extract<CGameEffect*>();
 }
 
-ArgumentStack Util::StripColors(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack StripColors(ArgumentStack&& args)
 {
-    const auto s = Services::Events::ExtractArgument<std::string>(args);
+    const auto s = args.extract<std::string>();
 
     std::regex color_codes("<c.+?(?=>)>|<\\/c>");
     std::string retVal = std::regex_replace(s, color_codes, "");
-    return Services::Events::Arguments(retVal);
+
+    return retVal;
 }
 
-ArgumentStack Util::IsValidResRef(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack IsValidResRef(ArgumentStack&& args)
 {
-    int32_t retVal = 0;
-    const auto resRef = Services::Events::ExtractArgument<std::string>(args);
-    const auto resType = Services::Events::ExtractArgument<int32_t>(args);
+    const auto resRef = args.extract<std::string>();
+    const auto resType = args.extract<int32_t>();
 
-    retVal = Globals::ExoResMan()->Exists(CResRef(resRef.c_str()), resType, nullptr);
-    return Services::Events::Arguments(retVal);
+    return Globals::ExoResMan()->Exists(CResRef(resRef.c_str()), resType, nullptr);
 }
 
-ArgumentStack Util::GetEnvironmentVariable(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetEnvironmentVariable(ArgumentStack&& args)
 {
     std::string retVal;
-    const auto envVar = Services::Events::ExtractArgument<std::string>(args);
+    const auto envVar = args.extract<std::string>();
 
     if (const char* value = std::getenv(envVar.c_str()))
         retVal = std::string(value);
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::GetMinutesPerHour(ArgumentStack&&)
+NWNX_EXPORT ArgumentStack GetMinutesPerHour(ArgumentStack&&)
 {
-    return Services::Events::Arguments(Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->m_nMinutesPerHour);
+    return Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->m_nMinutesPerHour;
 }
 
-ArgumentStack Util::SetMinutesPerHour(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack SetMinutesPerHour(ArgumentStack&& args)
 {
-    const auto minPerHour = Services::Events::ExtractArgument<int32_t>(args);
+    const auto minPerHour = args.extract<int32_t>();
       ASSERT_OR_THROW(minPerHour > 0);
       ASSERT_OR_THROW(minPerHour <= 255);
 
     Globals::AppManager()->m_pServerExoApp->GetWorldTimer()->SetMinutesPerHour(minPerHour);
-    return Services::Events::Arguments();
+
+    return {};
 }
 
-ArgumentStack Util::EncodeStringForURL(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack EncodeStringForURL(ArgumentStack&& args)
 {
-    const auto s = Services::Events::ExtractArgument<std::string>(args);
+    const auto s = args.extract<std::string>();
     std::string result;
 
     // ** Copied from ../Webhook/External/httplib.h
@@ -286,27 +233,28 @@ ArgumentStack Util::EncodeStringForURL(ArgumentStack&& args)
         }
     }
     // **
-    return Services::Events::Arguments(result);
+    return result;
 }
 
-ArgumentStack Util::Get2DARowCount(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack Get2DARowCount(ArgumentStack&& args)
 {
-    const auto twodaRef = Services::Events::ExtractArgument<std::string>(args);
-    auto twoda = Globals::Rules()->m_p2DArrays->GetCached2DA(twodaRef.c_str(), true);
-    return Services::Events::Arguments(twoda ? twoda->m_nNumRows : 0);
+    const auto twodaRef = args.extract<std::string>();
+    auto *pTwoda = Globals::Rules()->m_p2DArrays->GetCached2DA(twodaRef.c_str(), true);
+
+    return pTwoda ? pTwoda->m_nNumRows : 0;
 }
 
-ArgumentStack Util::GetFirstResRef(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetFirstResRef(ArgumentStack&& args)
 {
     std::string retVal;
 
-    const auto resRefType = Services::Events::ExtractArgument<int32_t>(args);
-    const auto regexFilter = Services::Events::ExtractArgument<std::string>(args);
-    const auto bModuleOnly = Services::Events::ExtractArgument<int32_t>(args);
+    const auto resRefType = args.extract<int32_t>();
+    const auto regexFilter = args.extract<std::string>();
+    const auto bModuleOnly = args.extract<int32_t>();
 
-    m_resRefIndex = 0;
-    m_listResRefs.clear();
-    m_listResRefs.reserve(10);
+    s_resRefIndex = 0;
+    s_listResRefs.clear();
+    s_listResRefs.reserve(25);
 
     CExoStringList *pList = Globals::ExoResMan()->GetResOfType(resRefType, !!bModuleOnly);
 
@@ -318,45 +266,45 @@ ArgumentStack Util::GetFirstResRef(ArgumentStack&& args)
         {
             if (regexFilter.empty() || std::regex_match(pList->m_pStrings[i]->CStr(), rgx))
             {
-                m_listResRefs.emplace_back(pList->m_pStrings[i]->CStr());
+                s_listResRefs.emplace_back(pList->m_pStrings[i]->CStr());
             }
         }
     }
 
-    if (m_resRefIndex < m_listResRefs.size())
+    if (s_resRefIndex < s_listResRefs.size())
     {
-        retVal = m_listResRefs[m_resRefIndex];
-        m_resRefIndex++;
+        retVal = s_listResRefs[s_resRefIndex];
+        s_resRefIndex++;
     }
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::GetNextResRef(ArgumentStack&&)
+NWNX_EXPORT ArgumentStack GetNextResRef(ArgumentStack&&)
 {
     std::string retVal;
 
-    if (m_resRefIndex < m_listResRefs.size())
+    if (s_resRefIndex < s_listResRefs.size())
     {
-        retVal = m_listResRefs[m_resRefIndex];
-        m_resRefIndex++;
+        retVal = s_listResRefs[s_resRefIndex];
+        s_resRefIndex++;
     }
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::GetServerTicksPerSecond(ArgumentStack&&)
+NWNX_EXPORT ArgumentStack GetServerTicksPerSecond(ArgumentStack&&)
 {
-    return Services::Events::Arguments(m_tickCount);
+    return s_tickCount;
 }
 
-ArgumentStack Util::GetLastCreatedObject(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetLastCreatedObject(ArgumentStack&& args)
 {
-    Types::ObjectID retVal = Constants::OBJECT_INVALID;
+    ObjectID retVal = Constants::OBJECT_INVALID;
 
-    const auto objectType = Services::Events::ExtractArgument<int32_t>(args);
+    const auto objectType = args.extract<int32_t>();
       ASSERT_OR_THROW(objectType >= 0);
-    const auto nthLast = Services::Events::ExtractArgument<int32_t>(args);
+    const auto nthLast = args.extract<int32_t>();
       ASSERT_OR_THROW(nthLast > 0);
 
     auto* pGameObjectArray = Globals::AppManager()->m_pServerExoApp->GetObjectArray();
@@ -382,52 +330,59 @@ ArgumentStack Util::GetLastCreatedObject(ArgumentStack&& args)
         }
     }
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::AddScript(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack AddScript(ArgumentStack&& args)
 {
-    std::string retVal;
-
-    const auto scriptName = Services::Events::ExtractArgument<std::string>(args);
+    const auto scriptName = args.extract<std::string>();
       ASSERT_OR_THROW(!scriptName.empty());
       ASSERT_OR_THROW(scriptName.size() <= 16);
-    const auto scriptData = Services::Events::ExtractArgument<std::string>(args);
+    const auto scriptData = args.extract<std::string>();
       ASSERT_OR_THROW(!scriptData.empty());
-    const auto wrapIntoMain = Services::Events::ExtractArgument<int32_t>(args);
+    const auto wrapIntoMain = args.extract<int32_t>();
 
-    if (!m_scriptCompiler)
+    auto alias = args.extract<std::string>();
+
+    if (!Utils::IsValidCustomResourceDirectoryAlias(alias))
     {
-        m_scriptCompiler = std::make_unique<CScriptCompiler>();
-        m_scriptCompiler->SetCompileDebugLevel(0);
-        m_scriptCompiler->SetCompileSymbolicOutput(0);
-        m_scriptCompiler->SetGenerateDebuggerOutput(0);
-        m_scriptCompiler->SetOptimizeBinaryCodeLength(true);
-        m_scriptCompiler->SetCompileConditionalOrMain(true);
-        m_scriptCompiler->SetIdentifierSpecification("nwscript");
-        m_scriptCompiler->SetOutputAlias("NWNX");
+        LOG_WARNING("NWNX_Util_AddScript() called with an invalid alias: %s, defaulting to 'NWNX'", alias);
+        alias = "NWNX";
     }
 
-    if (m_scriptCompiler->CompileScriptChunk(scriptData.c_str(), wrapIntoMain != 0) == 0)
+    if (!s_scriptCompiler)
     {
-        auto writeFileResult = m_scriptCompiler->WriteFinalCodeToFile(scriptName.c_str());
+        s_scriptCompiler = std::make_unique<CScriptCompiler>();
+        s_scriptCompiler->SetCompileDebugLevel(0);
+        s_scriptCompiler->SetCompileSymbolicOutput(0);
+        s_scriptCompiler->SetGenerateDebuggerOutput(0);
+        s_scriptCompiler->SetOptimizeBinaryCodeLength(true);
+        s_scriptCompiler->SetCompileConditionalOrMain(true);
+        s_scriptCompiler->SetIdentifierSpecification("nwscript");
+    }
+
+    s_scriptCompiler->SetOutputAlias(alias);
+
+    if (s_scriptCompiler->CompileScriptChunk(scriptData, wrapIntoMain != 0) == 0)
+    {
+        auto writeFileResult = s_scriptCompiler->WriteFinalCodeToFile(scriptName);
         if (writeFileResult != 0)
-            retVal = Globals::TlkTable()->GetSimpleString(abs(writeFileResult)).CStr();
+            return Globals::TlkTable()->GetSimpleString(abs(writeFileResult)).CStr();
     }
     else
-        retVal = m_scriptCompiler->m_sCapturedError.CStr();
+        return s_scriptCompiler->m_sCapturedError.CStr();
 
-    return Services::Events::Arguments(retVal);
+    return "";
 }
 
-ArgumentStack Util::GetNSSContents(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetNSSContents(ArgumentStack&& args)
 {
     std::string retVal;
 
-    const auto scriptName = Services::Events::ExtractArgument<std::string>(args);
+    const auto scriptName = args.extract<std::string>();
       ASSERT_OR_THROW(!scriptName.empty());
       ASSERT_OR_THROW(scriptName.size() <= 16);
-    const auto maxLength = Services::Events::ExtractArgument<int32_t>(args);
+    const auto maxLength = args.extract<int32_t>();
 
     if (Globals::ExoResMan()->Exists(scriptName.c_str(), Constants::ResRefType::NSS, nullptr))
     {
@@ -442,75 +397,115 @@ ArgumentStack Util::GetNSSContents(ArgumentStack&& args)
         }
     }
 
-    return Services::Events::Arguments(retVal);
+    return retVal;
 }
 
-ArgumentStack Util::AddNSSFile(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack AddNSSFile(ArgumentStack&& args)
 {
-    int32_t retVal = false;
-
-    const auto fileName = Services::Events::ExtractArgument<std::string>(args);
+    const auto fileName = args.extract<std::string>();
       ASSERT_OR_THROW(!fileName.empty());
       ASSERT_OR_THROW(fileName.size() <= 16);
-    const auto contents = Services::Events::ExtractArgument<std::string>(args);
+    const auto contents = args.extract<std::string>();
 
-    auto file = CExoFile(("NWNX:" + fileName).c_str(), Constants::ResRefType::NSS, "w");
+    auto alias = args.extract<std::string>();
 
-    if (file.FileOpened())
+    if (!Utils::IsValidCustomResourceDirectoryAlias(alias))
     {
-        if (file.Write(contents))
-        {
-            retVal = file.Flush();
-        }
+        LOG_WARNING("NWNX_Util_AddNSSFile() called with an invalid alias: %s, defaulting to 'NWNX'", alias);
+        alias = "NWNX";
     }
 
-    return Services::Events::Arguments(retVal);
+    auto file = CExoFile((alias + ":" + fileName).c_str(), Constants::ResRefType::NSS, "w");
+
+    return file.FileOpened() && file.Write(contents) && file.Flush();
 }
 
-ArgumentStack Util::RemoveNWNXResourceFile(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack RemoveNWNXResourceFile(ArgumentStack&& args)
 {
-    int32_t retVal;
-
-    const auto fileName = Services::Events::ExtractArgument<std::string>(args);
+    const auto fileName = args.extract<std::string>();
       ASSERT_OR_THROW(!fileName.empty());
       ASSERT_OR_THROW(fileName.size() <= 16);
-    const auto type = Services::Events::ExtractArgument<int32_t>(args);
+    const auto type = args.extract<int32_t>();
 
-    CExoString exoFileName = ("NWNX:" + fileName).c_str();
+    auto alias = args.extract<std::string>();
 
-    retVal = Globals::ExoResMan()->RemoveFile(exoFileName, type);
+    if (!Utils::IsValidCustomResourceDirectoryAlias(alias))
+    {
+        LOG_WARNING("NWNX_Util_RemoveNWNXResourceFile() called with an invalid alias: %s, defaulting to 'NWNX'", alias);
+        alias = "NWNX";
+    }
 
-    return Services::Events::Arguments(retVal);
+    CExoString exoFileName = alias + ":" + fileName;
+
+    return Globals::ExoResMan()->RemoveFile(exoFileName, type);
 }
 
-ArgumentStack Util::SetInstructionLimit(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack SetInstructionLimit(ArgumentStack&& args)
 {
     const static uint32_t defaultInstructionLimit = Globals::VirtualMachine()->m_nInstructionLimit;
-    const auto limit = Services::Events::ExtractArgument<int32_t>(args);
+    const auto limit = args.extract<int32_t>();
 
     if (limit < 0)
-        Globals::VirtualMachine()->m_nInstructionLimit = defaultInstructionLimit;
+    {
+        // We queue it on the main thread so it'll reset after the current script is done executing
+        Tasks::QueueOnMainThread(
+            [](){ Globals::VirtualMachine()->m_nInstructionLimit = defaultInstructionLimit; });
+    }
     else
         Globals::VirtualMachine()->m_nInstructionLimit = limit;
 
-    return Services::Events::Arguments();
+    return {};
 }
 
-ArgumentStack Util::RegisterServerConsoleCommand(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack GetInstructionLimit(ArgumentStack&&)
 {
-    const auto command = Services::Events::ExtractArgument<std::string>(args);
+    int32_t retVal = Globals::VirtualMachine()->m_nInstructionLimit;
+    return retVal;
+}
+
+NWNX_EXPORT ArgumentStack SetInstructionsExecuted(ArgumentStack&& args)
+{
+    const auto instructions = args.extract<int32_t>();
+
+    Globals::VirtualMachine()->m_nInstructionsExecuted = instructions >= 0 ? instructions : 0;
+
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack GetInstructionsExecuted(ArgumentStack&&)
+{
+    int32_t retVal = Globals::VirtualMachine()->m_nInstructionsExecuted;
+    return retVal;
+}
+
+NWNX_EXPORT ArgumentStack GetScriptReturnValue(ArgumentStack&&)
+{
+    int32_t retVal = 0;
+
+    int32_t nParameterType;
+    void* pParameter;
+    if (Globals::VirtualMachine()->GetRunScriptReturnValue(&nParameterType, &pParameter) && nParameterType == 3) {
+        retVal = (intptr_t)pParameter;
+    }
+
+    return retVal;
+}
+
+NWNX_EXPORT ArgumentStack RegisterServerConsoleCommand(ArgumentStack&& args)
+{
+    const auto command = args.extract<std::string>();
       ASSERT_OR_THROW(!command.empty());
-    const auto scriptChunk = Services::Events::ExtractArgument<std::string>(args);
+    const auto scriptChunk = args.extract<std::string>();
       ASSERT_OR_THROW(!scriptChunk.empty());
 
-    bool registered = g_plugin->GetServices()->m_commands->RegisterCommand(command, [](std::string &command, std::string &args)
+    bool registered = Commands::Register(command, [](std::string &command, std::string &args)
     {
         if (Globals::AppManager()->m_pServerExoApp->GetServerMode() != 2)
             return;
 
         LOG_INFO("Executing NWScript Server Console Command: '%s' with args: %s", command, args);
 
-        std::string scriptChunk = g_plugin->m_serverConsoleCommandMap[command];
+        std::string scriptChunk = s_serverConsoleCommandMap[command];
         bool wrapIntoMain = scriptChunk.find("void main()") == std::string::npos;
         std::string search = "$args";
 
@@ -529,23 +524,235 @@ ArgumentStack Util::RegisterServerConsoleCommand(ArgumentStack&& args)
     });
 
     if (registered)
-        g_plugin->m_serverConsoleCommandMap[command] = scriptChunk;
+        s_serverConsoleCommandMap[command] = scriptChunk;
 
-    return Services::Events::Arguments(registered);
+    return registered;
 }
 
-ArgumentStack Util::UnregisterServerConsoleCommand(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack UnregisterServerConsoleCommand(ArgumentStack&& args)
 {
-    const auto command = Services::Events::ExtractArgument<std::string>(args);
+    const auto command = args.extract<std::string>();
       ASSERT_OR_THROW(!command.empty());
 
-    if (g_plugin->m_serverConsoleCommandMap.find(command) != g_plugin->m_serverConsoleCommandMap.end())
+    if (s_serverConsoleCommandMap.find(command) != s_serverConsoleCommandMap.end())
     {
-        g_plugin->GetServices()->m_commands->UnregisterCommand(command);
-        g_plugin->m_serverConsoleCommandMap.erase(command);
+        Commands::Unregister(command);
+        s_serverConsoleCommandMap.erase(command);
     }
 
-    return Services::Events::Arguments();
+    return {};
 }
 
+NWNX_EXPORT ArgumentStack PluginExists(ArgumentStack&& args)
+{
+    return Plugin::Find(args.extract<std::string>()) ? 1 : 0;
+}
+
+NWNX_EXPORT ArgumentStack GetUserDirectory(ArgumentStack&&)
+{
+    return Globals::ExoBase()->m_sUserDirectory.CStr();
+}
+
+NWNX_EXPORT ArgumentStack CreateDoor(ArgumentStack&& args)
+{
+    ObjectID retVal = Constants::OBJECT_INVALID;
+
+    const auto strResRef = args.extract<std::string>();
+      ASSERT_OR_THROW(!strResRef.empty());
+    const auto oidArea = args.extract<ObjectID>();
+      ASSERT_OR_THROW(oidArea != Constants::OBJECT_INVALID);
+    const auto posX = args.extract<float>();
+    const auto posY = args.extract<float>();
+    const auto posZ = args.extract<float>();
+    const auto facing = args.extract<float>();
+    const auto tag = args.extract<std::string>();
+    const auto appearance = args.extract<int32_t>();
+
+    auto resRef = CResRef(strResRef);
+    Vector position = {posX, posY, posZ};
+
+    if (!Globals::ExoResMan()->Exists(resRef, Constants::ResRefType::UTD, nullptr))
+    {
+        LOG_WARNING("CreateDoor: ResRef '%s' does not exist", resRef.GetResRefStr());
+        return Constants::OBJECT_INVALID;
+    }
+
+    if (auto *pArea = Utils::AsNWSArea(Utils::GetGameObject(oidArea)))
+    {
+        CResStruct resStruct{};
+        CResGFF gff(Constants::ResRefType::UTD, (char*)"UTD ", resRef);
+
+        if (gff.m_bLoaded)
+        {
+            auto *pDoor = new CNWSDoor();
+            gff.GetTopLevelStruct(&resStruct);
+
+            pDoor->m_sTemplate = resRef.GetResRefStr();
+            pDoor->LoadDoor(&gff, &resStruct);
+            pDoor->LoadVarTable(&gff, &resStruct);
+            pDoor->SetPosition(position);
+            if (appearance >= 0)
+                pDoor->m_nAppearanceType = appearance;
+            Utils::SetOrientation(pDoor, facing);
+
+            if (!tag.empty())
+            {
+                pDoor->m_sTag = CExoString(tag.c_str());
+                Utils::GetModule()->AddObjectToLookupTable(pDoor->m_sTag, pDoor->m_idSelf);
+            }
+
+            pDoor->AddToArea(pArea, posX, posY, pArea->ComputeHeight(position));
+
+            retVal = pDoor->m_idSelf;
+        }
+        else
+            LOG_WARNING("CreateDoor: Unable to load ResRef: %s", resRef.GetResRefStr());
+    }
+    else
+        LOG_WARNING("CreateDoor: Invalid Area");
+
+    return retVal;
+}
+
+NWNX_EXPORT ArgumentStack SetItemActivator(ArgumentStack&& args)
+{
+    const auto objectId = args.extract<ObjectID>();
+
+    if (auto *pGameObject = Globals::AppManager()->m_pServerExoApp->GetGameObject(objectId))
+        Utils::GetModule()->m_oidLastItemActivator = pGameObject->m_idSelf;
+    else
+        Utils::GetModule()->m_oidLastItemActivator = Constants::OBJECT_INVALID;
+
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack GetWorldTime(ArgumentStack&& args)
+{
+    const auto adjustment = args.extract<float>();
+
+    auto *pWorldTimer = Globals::AppManager()->m_pServerExoApp->GetWorldTimer();
+    uint32_t adjustmentCalendarDay = pWorldTimer->GetCalendarDayFromSeconds(std::fabs(adjustment));
+    uint32_t adjustmentTimeOfDay = pWorldTimer->GetTimeOfDayFromSeconds(std::fabs(adjustment));
+    uint32_t currentCalendarDay, currentTimeOfDay, retvalCalendarDay, retvalTimeOfDay;
+    pWorldTimer->GetWorldTime(&currentCalendarDay, &currentTimeOfDay);
+
+    if (adjustment > 0.0f)
+        pWorldTimer->AddWorldTimes(currentCalendarDay, currentTimeOfDay, adjustmentCalendarDay, adjustmentTimeOfDay, &retvalCalendarDay, &retvalTimeOfDay);
+    else if (adjustment < 0.0f)
+        pWorldTimer->SubtractWorldTimes(currentCalendarDay, currentTimeOfDay, adjustmentCalendarDay, adjustmentTimeOfDay, &retvalCalendarDay, &retvalTimeOfDay);
+    else
+    {
+        retvalCalendarDay = currentCalendarDay;
+        retvalTimeOfDay = currentTimeOfDay;
+    }
+
+    return {(int32_t)retvalCalendarDay, (int32_t)retvalTimeOfDay};
+}
+
+NWNX_EXPORT ArgumentStack SetResourceOverride(ArgumentStack&& args)
+{
+    auto resType = args.extract<int32_t>();
+      ASSERT_OR_THROW(resType >= Constants::ResRefType::MIN);
+      ASSERT_OR_THROW(resType <= Constants::ResRefType::MAX);
+    auto oldName = args.extract<std::string>();
+      ASSERT_OR_THROW(!oldName.empty());
+      ASSERT_OR_THROW(oldName.size() <= 16);
+    auto newName = args.extract<std::string>();
+      ASSERT_OR_THROW(newName.size() <= 16);
+
+    if (newName.empty())
+        Globals::ExoResMan()->RemoveOverride(oldName.c_str(), resType);
+    else
+        Globals::ExoResMan()->AddOverride(oldName.c_str(), newName.c_str(), resType);
+
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack GetResourceOverride(ArgumentStack&& args)
+{
+    auto resType = args.extract<int32_t>();
+      ASSERT_OR_THROW(resType >= Constants::ResRefType::MIN);
+      ASSERT_OR_THROW(resType <= Constants::ResRefType::MAX);
+    auto resName = args.extract<std::string>();
+      ASSERT_OR_THROW(!resName.empty());
+      ASSERT_OR_THROW(resName.size() <= 16);
+
+    std::string overrideResName = Globals::ExoResMan()->GetOverride(resName.c_str(), resType).GetResRefStr();
+
+    return overrideResName == resName ? "" : overrideResName;
+}
+
+NWNX_EXPORT ArgumentStack GetScriptParamIsSet(ArgumentStack&& args)
+{
+    int32_t retVal = false;
+
+    const auto paramName = args.extract<std::string>();
+      ASSERT_OR_THROW(!paramName.empty());
+
+    auto *pVirtualMachine = API::Globals::VirtualMachine();
+    if (pVirtualMachine && pVirtualMachine->m_nRecursionLevel >= 0)
+    {
+        auto &scriptParams = pVirtualMachine->m_lScriptParams[pVirtualMachine->m_nRecursionLevel];
+
+        for (const auto& scriptParam : scriptParams)
+        {
+            if (scriptParam.key.CStr() == paramName)
+            {
+                retVal = true;
+                break;
+            }
+        }
+    }
+
+    return retVal;
+}
+
+NWNX_EXPORT ArgumentStack SetDawnHour(ArgumentStack &&args)
+{
+    const auto dawnHour = args.extract<int32_t>();
+      ASSERT_OR_THROW(dawnHour >= 0);
+      ASSERT_OR_THROW(dawnHour <= 23);
+
+    Utils::GetModule()->m_nDawnHour = dawnHour;
+
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack SetDuskHour(ArgumentStack &&args)
+{
+    const auto duskHour = args.extract<int32_t>();
+      ASSERT_OR_THROW(duskHour >= 0);
+      ASSERT_OR_THROW(duskHour <= 23);
+
+    Utils::GetModule()->m_nDuskHour = duskHour;
+
+    return {};
+}
+
+NWNX_EXPORT ArgumentStack GetHighResTimeStamp(ArgumentStack&&)
+{
+    auto now = std::chrono::system_clock::now();
+    auto dur = now.time_since_epoch();
+
+    auto count = std::chrono::duration_cast<std::chrono::microseconds>(dur).count();
+
+    return {(int32_t)(count / 1000000), (int32_t)(count % 1000000)};
+}
+
+NWNX_EXPORT ArgumentStack GetTTY(ArgumentStack&&)
+{
+    std::string retval;
+    auto tty = ttyname(STDIN_FILENO);
+    if (tty)
+       retval = tty;
+    return retval;
+}
+
+NWNX_EXPORT ArgumentStack SetCurrentlyRunningEvent(ArgumentStack&& args)
+{
+    const auto eventId = args.extract<int32_t>();
+
+    Globals::VirtualMachine()->m_pVirtualMachineScript[0].m_nScriptEventID = eventId;
+
+    return {};
 }

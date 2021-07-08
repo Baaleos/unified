@@ -1,3 +1,4 @@
+#include "nwnx.hpp"
 #include "NWNXCore.hpp"
 
 #include "API/CAppManager.hpp"
@@ -12,16 +13,12 @@
 #include "API/CGameEffect.hpp"
 #include "API/CNWVirtualMachineCommands.hpp"
 #include "API/CNWSObject.hpp"
-#include "Platform/Debug.hpp"
-#include "Services/Events/Events.hpp"
-#include "Utils.hpp"
 
 #include <cstring>
 #include <optional>
 
 using namespace NWNXLib;
 using namespace NWNXLib::API;
-using namespace NWNXLib::API::Types;
 using namespace NWNXLib::API::Constants;
 
 namespace {
@@ -96,10 +93,21 @@ extern NWNXCore* g_core;
 
 int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCommandId, int32_t nParameters)
 {
+    switch (nCommandId)
+    {
+        case VMCommand::GetLocalInt:
+        case VMCommand::GetLocalFloat:
+        case VMCommand::GetLocalString:
+        case VMCommand::GetLocalObject:
+            break;
+        default:
+            return g_core->m_vmGetVarHook->CallOriginal<int32_t>(thisPtr, nCommandId, nParameters);
+    }
+
     ASSERT(thisPtr); ASSERT(nParameters == 2);
     auto *vm = Globals::VirtualMachine();
 
-    Types::ObjectID oid;
+    ObjectID oid;
     if (!vm->StackPopObject(&oid))
         return VMError::StackUnderflow;
 
@@ -120,8 +128,7 @@ int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
             int32_t n = 0;
             if (nwnx)
             {
-                if (auto res = g_core->m_services->m_events->Pop<int32_t>(nwnx->plugin, nwnx->event))
-                    n = *res;
+                n = Events::Pop<int32_t>().value_or(n);
             }
             else if (vartable)
             {
@@ -135,8 +142,7 @@ int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
             float f = 0.0f;
             if (nwnx)
             {
-                if (auto res = g_core->m_services->m_events->Pop<float>(nwnx->plugin, nwnx->event))
-                    f = *res;
+                f = Events::Pop<float>().value_or(f);
             }
             else if (vartable)
             {
@@ -150,8 +156,7 @@ int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
             CExoString str = "";
             if (nwnx)
             {
-                if (auto res = g_core->m_services->m_events->Pop<std::string>(nwnx->plugin, nwnx->event))
-                    str = res->c_str();
+                str = Events::Pop<std::string>().value_or(str);
             }
             else if (vartable)
             {
@@ -162,28 +167,16 @@ int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
         }
         case VMCommand::GetLocalObject:
         {
-            Types::ObjectID oid = Constants::OBJECT_INVALID;
-
+            ObjectID oid = Constants::OBJECT_INVALID;
             if (nwnx)
             {
-                if (auto res = g_core->m_services->m_events->Pop<Types::ObjectID>(nwnx->plugin, nwnx->event))
-                    oid = *res;
+                oid = Events::Pop<ObjectID>().value_or(oid);
             }
             else if (vartable)
             {
                 oid = vartable->GetObject(varname);
             }
             success = vm->StackPushObject(oid);
-            break;
-        }
-        case VMCommand::GetLocalLocation:
-        {
-            // No NWNX option here
-            CScriptLocation loc;
-            if (vartable)
-                loc = vartable->GetLocation(varname);
-
-            success = vm->StackPushEngineStructure(VMStructure::Location, &loc);
             break;
         }
         default:
@@ -194,10 +187,21 @@ int32_t NWNXCore::GetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
 }
 int32_t NWNXCore::SetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCommandId, int32_t nParameters)
 {
+    switch (nCommandId)
+    {
+        case VMCommand::SetLocalInt:
+        case VMCommand::SetLocalFloat:
+        case VMCommand::SetLocalString:
+        case VMCommand::SetLocalObject:
+            break;
+        default:
+            return g_core->m_vmSetVarHook->CallOriginal<int32_t>(thisPtr, nCommandId, nParameters);
+    }
+
     ASSERT(thisPtr); ASSERT(nParameters == 3);
     auto *vm = Globals::VirtualMachine();
 
-    Types::ObjectID oid;
+    ObjectID oid;
     if (!vm->StackPopObject(&oid))
         return VMError::StackUnderflow;
 
@@ -220,7 +224,7 @@ int32_t NWNXCore::SetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
 
             if (nwnx)
             {
-                g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, value);
+                Events::Push(value);
             }
             else if (vartable)
             {
@@ -236,7 +240,7 @@ int32_t NWNXCore::SetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
 
             if (nwnx)
             {
-                g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, value);
+                Events::Push(value);
             }
             else if (vartable)
             {
@@ -252,7 +256,7 @@ int32_t NWNXCore::SetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
 
             if (nwnx)
             {
-                g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, std::string(value.CStr()));
+                Events::Push(std::string(value.CStr()));
             }
             else if (vartable)
             {
@@ -262,30 +266,18 @@ int32_t NWNXCore::SetVarHandler(CNWVirtualMachineCommands* thisPtr, int32_t nCom
         }
         case VMCommand::SetLocalObject:
         {
-            Types::ObjectID value;
+            ObjectID value;
             if (!vm->StackPopObject(&value))
                 return VMError::StackUnderflow;
 
             if (nwnx)
             {
-                g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, value);
+                Events::Push(value);
             }
             else if (vartable)
             {
                 vartable->SetObject(varname, value);
             }
-            break;
-        }
-        case VMCommand::SetLocalLocation:
-        {
-            // No NWNX option here
-            CScriptLocation *pLoc;
-            if (!vm->StackPopEngineStructure(VMStructure::Location, (void**)&pLoc))
-                return VMError::StackUnderflow;
-            if (vartable)
-                vartable->SetLocation(varname, *pLoc);
-
-            delete pLoc;
             break;
         }
         default:
@@ -315,11 +307,11 @@ int32_t NWNXCore::TagEffectHandler(CNWVirtualMachineCommands* thisPtr, int32_t n
         if (nwnx->operation == "PUSH")
         {
             bSkipDelete = true;
-            g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, pEffect);
+            Events::Push(pEffect);
         }
         else if (nwnx->operation == "POP")
         {
-            if (auto res = g_core->m_services->m_events->Pop<CGameEffect*>(nwnx->plugin, nwnx->event))
+            if (auto res = Events::Pop<CGameEffect*>())
             {
                 Utils::DestroyGameEffect(pEffect);
                 pEffect = *res;
@@ -366,11 +358,11 @@ int32_t NWNXCore::TagItemPropertyHandler(CNWVirtualMachineCommands* thisPtr, int
         if (nwnx->operation == "PUSH")
         {
             bSkipDelete = true;
-            g_core->m_services->m_events->Push(nwnx->plugin, nwnx->event, pItemProperty);
+            Events::Push(pItemProperty);
         }
         else if (nwnx->operation == "POP")
         {
-            if (auto res = g_core->m_services->m_events->Pop<CGameEffect*>(nwnx->plugin, nwnx->event))
+            if (auto res = Events::Pop<CGameEffect*>())
             {
                 Utils::DestroyGameEffect(pItemProperty);
                 pItemProperty = *res;
@@ -410,7 +402,7 @@ int32_t NWNXCore::PlaySoundHandler(CNWVirtualMachineCommands* thisPtr, int32_t n
     {
         ASSERT(nwnx->operation == "CALL"); // This one is used only for CALL ops
         if (g_core->m_ScriptChunkRecursion == 0)
-            g_core->m_services->m_events->Call(nwnx->plugin, nwnx->event);
+            Events::Call(nwnx->plugin, nwnx->event);
         else
             LOG_NOTICE("NWNX function '%s_%s' in ExecuteScriptChunk() was blocked due to configuration", nwnx->plugin, nwnx->event);
     }
@@ -422,8 +414,7 @@ int32_t NWNXCore::PlaySoundHandler(CNWVirtualMachineCommands* thisPtr, int32_t n
             {
                 if (obj->m_bAbleToModifyActionQueue)
                 {
-                    obj->AddAction(23, -1, 4, (CExoString*)&sound,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+                    obj->AddAction(23, -1, 4, (CExoString*)&sound);
                 }
 
             }

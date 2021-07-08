@@ -1,80 +1,40 @@
-#include "ItemProperty.hpp"
+#include "nwnx.hpp"
 
 #include "API/Constants.hpp"
 #include "API/Globals.hpp"
 #include "API/CGameEffect.hpp"
 #include "API/Functions.hpp"
-#include "Utils.hpp"
+#include "API/CAppManager.hpp"
+#include "API/CServerExoApp.hpp"
+#include "API/CNWSItem.hpp"
 
 #include <string>
 
 using namespace NWNXLib;
 using namespace NWNXLib::API;
 
-static ItemProperty::ItemProperty* g_plugin;
-
-NWNX_PLUGIN_ENTRY Plugin::Info* PluginInfo()
-{
-    return new Plugin::Info
-    {
-        "ItemProperty",
-        "Miscellaneous itemproperty functions",
-        "sherincall",
-        "sherincall@gmail.com",
-        1,
-        true
-    };
-}
-
-NWNX_PLUGIN_ENTRY Plugin* PluginLoad(Plugin::CreateParams params)
-{
-    g_plugin = new ItemProperty::ItemProperty(params);
-    return g_plugin;
-}
-
-
-namespace ItemProperty {
-
-ItemProperty::ItemProperty(const Plugin::CreateParams& params)
-    : Plugin(params)
-{
-#define REGISTER(func) \
-    GetServices()->m_events->RegisterEvent(#func, \
-        [this](ArgumentStack&& args){ return func(std::move(args)); })
-
-    REGISTER(PackIP);
-    REGISTER(UnpackIP);
-
-#undef REGISTER
-
-}
-
-ItemProperty::~ItemProperty()
-{
-}
-
-ArgumentStack ItemProperty::PackIP(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack PackIP(ArgumentStack&& args)
 {
     CGameEffect *ip = new CGameEffect(true);
 
-    auto propname     = Services::Events::ExtractArgument<int32_t>(args);
-    auto subtype      = Services::Events::ExtractArgument<int32_t>(args);
-    auto costtable    = Services::Events::ExtractArgument<int32_t>(args);
-    auto costvalue    = Services::Events::ExtractArgument<int32_t>(args);
-    auto param1       = Services::Events::ExtractArgument<int32_t>(args);
-    auto param1value  = Services::Events::ExtractArgument<int32_t>(args);
-    auto usesperday   = Services::Events::ExtractArgument<int32_t>(args);
-    auto chance       = Services::Events::ExtractArgument<int32_t>(args);
-    auto usable       = Services::Events::ExtractArgument<int32_t>(args);
-    auto spellId      = Services::Events::ExtractArgument<int32_t>(args);
+    auto propname     = args.extract<int32_t>();
+    auto subtype      = args.extract<int32_t>();
+    auto costtable    = args.extract<int32_t>();
+    auto costvalue    = args.extract<int32_t>();
+    auto param1       = args.extract<int32_t>();
+    auto param1value  = args.extract<int32_t>();
+    auto usesperday   = args.extract<int32_t>();
+    auto chance       = args.extract<int32_t>();
+    auto usable       = args.extract<int32_t>();
+    auto spellId      = args.extract<int32_t>();
 
-    auto creator      = Services::Events::ExtractArgument<API::Types::ObjectID>(args);
-    auto tag          = Services::Events::ExtractArgument<std::string>(args);
+    auto creator      = args.extract<ObjectID>();
+    auto tag          = args.extract<std::string>();
 
     ip->SetNumIntegersInitializeToNegativeOne(9);
     ip->m_bExpose = 1;
-    ip->m_nType = API::Constants::EffectTrueType::ItemProperty;
-    ip->m_nSubType = API::Constants::EffectDurationType::Permanent;
+    ip->m_nType = Constants::EffectTrueType::ItemProperty;
+    ip->m_nSubType = Constants::EffectDurationType::Permanent;
     ip->m_oidCreator = creator;
     ip->m_nSpellId = spellId;
 
@@ -89,28 +49,55 @@ ArgumentStack ItemProperty::PackIP(ArgumentStack&& args)
     ip->SetInteger(8, usable);
     ip->SetString(0, tag.c_str());
 
-    return Services::Events::Arguments(ip);
+    return Events::Arguments(ip);
 }
-ArgumentStack ItemProperty::UnpackIP(ArgumentStack&& args)
+NWNX_EXPORT ArgumentStack UnpackIP(ArgumentStack&& args)
 {
     ArgumentStack stack;
-    auto ip = Services::Events::ExtractArgument<CGameEffect*>(args);
+    auto ip = args.extract<CGameEffect*>();
 
-    Services::Events::InsertArgument(stack, ip->GetString(0).CStr());
-    Services::Events::InsertArgument(stack, (API::Types::ObjectID)ip->m_oidCreator);
-    Services::Events::InsertArgument(stack, (int32_t)ip->m_nSpellId);
-    Services::Events::InsertArgument(stack, ip->GetInteger(8));
-    Services::Events::InsertArgument(stack, ip->GetInteger(7));
-    Services::Events::InsertArgument(stack, ip->GetInteger(6));
-    Services::Events::InsertArgument(stack, ip->GetInteger(5));
-    Services::Events::InsertArgument(stack, ip->GetInteger(4));
-    Services::Events::InsertArgument(stack, ip->GetInteger(3));
-    Services::Events::InsertArgument(stack, ip->GetInteger(2));
-    Services::Events::InsertArgument(stack, ip->GetInteger(1));
-    Services::Events::InsertArgument(stack, ip->GetInteger(0));
+    Events::InsertArgument(stack, ip->GetString(0).CStr());
+    Events::InsertArgument(stack, (ObjectID)ip->m_oidCreator);
+    Events::InsertArgument(stack, (int32_t)ip->m_nSpellId);
+    Events::InsertArgument(stack, ip->GetInteger(8));
+    Events::InsertArgument(stack, ip->GetInteger(7));
+    Events::InsertArgument(stack, ip->GetInteger(6));
+    Events::InsertArgument(stack, ip->GetInteger(5));
+    Events::InsertArgument(stack, ip->GetInteger(4));
+    Events::InsertArgument(stack, ip->GetInteger(3));
+    Events::InsertArgument(stack, ip->GetInteger(2));
+    Events::InsertArgument(stack, ip->GetInteger(1));
+    Events::InsertArgument(stack, ip->GetInteger(0));
+    Events::InsertArgument(stack, std::to_string(ip->m_nItemPropertySourceId));
 
     Utils::DestroyGameEffect(ip);
     return stack;
 }
 
+NWNX_EXPORT ArgumentStack GetActiveProperty(ArgumentStack&& args)
+{
+    auto objectId = args.extract<ObjectID>();
+      ASSERT_OR_THROW(objectId != Constants::OBJECT_INVALID);
+
+    auto *pGameObject = Globals::AppManager()->m_pServerExoApp->GetGameObject(objectId);
+    auto *pItem = Utils::AsNWSItem(pGameObject);
+      ASSERT_OR_THROW(pItem);
+
+    auto index = args.extract<int32_t>();
+    auto ip = pItem->GetActiveProperty(index);
+      ASSERT_OR_THROW(ip);
+
+    ArgumentStack stack;
+
+    Events::InsertArgument(stack, ip->m_sCustomTag.CStr());
+    Events::InsertArgument(stack, ip->m_bUseable);
+    Events::InsertArgument(stack, ip->m_nChanceOfAppearing);
+    Events::InsertArgument(stack, ip->m_nUsesPerDay);
+    Events::InsertArgument(stack, ip->m_nParam1Value);
+    Events::InsertArgument(stack, ip->m_nParam1);
+    Events::InsertArgument(stack, ip->m_nCostTableValue);
+    Events::InsertArgument(stack, ip->m_nCostTable);
+    Events::InsertArgument(stack, ip->m_nSubType);
+    Events::InsertArgument(stack, ip->m_nPropertyName);
+    return stack;
 }

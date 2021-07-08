@@ -60,9 +60,10 @@ namespace MessageMajor
         PlayModuleCharacterList                = 0x31,
         CustomToken                            = 0x32,
         Cutscene                               = 0x33,
+        Resman                                 = 0x34,
     };
     constexpr int32_t MIN   = 0;
-    constexpr int32_t MAX   = 0x33;
+    constexpr int32_t MAX   = 0x34;
 
     constexpr const char* ToString(const unsigned value)
     {
@@ -120,6 +121,7 @@ namespace MessageMajor
             "PlayModuleCharacterList",
             "CustomToken",
             "Cutscene",
+            "Resman",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
@@ -699,9 +701,10 @@ namespace MessageCheatMinor
         ComputeSafeLocation                      = 0x1a,
         EnableScriptDebugger                     = 0x1b,
         ToggleHitDieDebugging                    = 0x1c,
+        RunScriptChunk                           = 0x1d,
     };
     constexpr int32_t MIN   = 1;
-    constexpr int32_t MAX   = 0x1c;
+    constexpr int32_t MAX   = 0x1d;
 
     constexpr const char* ToString(const unsigned value)
     {
@@ -736,6 +739,7 @@ namespace MessageCheatMinor
             "ComputeSafeLocation",
             "EnableScriptDebugger",
             "ToggleHitDieDebugging",
+            "RunScriptChunk",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
@@ -1199,6 +1203,9 @@ namespace MessageDungeonMasterMinor
         Difficulty                       = 0x11,
         ViewInventory                    = 0x12,
         SpawnTrapOnObject                = 0x13,
+        Login                            = 0x14,
+        Logout                           = 0x15,
+        LoginState                       = 0x16,
         Heal                             = 0x20,
         Kill                             = 0x21,
         Goto                             = 0x22,
@@ -1267,6 +1274,9 @@ namespace MessageDungeonMasterMinor
             case Difficulty:             return "Difficulty";
             case ViewInventory:          return "ViewInventory";
             case SpawnTrapOnObject:      return "SpawnTrapOnObject";
+            case Login:                  return "Login";
+            case Logout:                 return "Logout";
+            case LoginState:             return "LoginState";
             case Heal:                   return "Heal";
             case Kill:                   return "Kill";
             case Goto:                   return "Goto";
@@ -1771,6 +1781,31 @@ namespace MessageCutsceneMinor
             "StopFade",
             "BlackScreen",
             "HideGui",
+        };
+
+        return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
+    }
+}
+
+namespace MessageResmanMinor
+{
+    enum TYPE
+    {
+        Override                            = 0x01,
+        TlkOverride                         = 0x02,
+        TlkOverrideList                     = 0x03,
+    };
+    constexpr int32_t MIN   = 1;
+    constexpr int32_t MAX   = 0x03;
+
+    constexpr const char* ToString(const unsigned value)
+    {
+        constexpr const char* TYPE_STRINGS[] =
+        {
+            "Null",
+            "Override",
+            "TlkOverride",
+            "TlkOverrideList",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];

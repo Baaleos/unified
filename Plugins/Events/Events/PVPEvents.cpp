@@ -1,11 +1,7 @@
-#include "Events/PVPEvents.hpp"
+#include "Events.hpp"
 #include "API/CNWSPlayer.hpp"
 #include "API/CAppManager.hpp"
 #include "API/CServerExoApp.hpp"
-#include "API/Functions.hpp"
-#include "API/Constants.hpp"
-#include "API/Globals.hpp"
-#include "Events.hpp"
 
 namespace Events {
 
@@ -13,37 +9,42 @@ using namespace NWNXLib;
 using namespace NWNXLib::API;
 using namespace NWNXLib::Services;
 
-static NWNXLib::Hooking::FunctionHook* m_HandlePlayerToServerPVPListOperationsHook = nullptr;
+static NWNXLib::Hooks::Hook s_HandlePlayerToServerPVPListOperationsHook;
 
-PVPEvents::PVPEvents(HooksProxy* hooker)
-{    Events::InitOnFirstSubscribe("NWNX_ON_PVP_ATTITUDE_CHANGE_.*", [hooker]() {
-        hooker->RequestExclusiveHook<Functions::_ZN11CNWSMessage37HandlePlayerToServerPVPListOperationsEP10CNWSPlayerh>(&HandlePlayerToServerPVPListOperationsHook);
-        m_HandlePlayerToServerPVPListOperationsHook = hooker->FindHookByAddress(API::Functions::_ZN11CNWSMessage37HandlePlayerToServerPVPListOperationsEP10CNWSPlayerh);
+static int32_t HandlePlayerToServerPVPListOperationsHook(CNWSMessage*, CNWSPlayer*, uint8_t);
+
+void PVPEvents() __attribute__((constructor));
+void PVPEvents()
+{
+    InitOnFirstSubscribe("NWNX_ON_PVP_ATTITUDE_CHANGE_.*", []() {
+        s_HandlePlayerToServerPVPListOperationsHook = Hooks::HookFunction(
+                Functions::_ZN11CNWSMessage37HandlePlayerToServerPVPListOperationsEP10CNWSPlayerh,
+                (void*)&HandlePlayerToServerPVPListOperationsHook, Hooks::Order::Early);
     });
 }
 
-int32_t PVPEvents::HandlePlayerToServerPVPListOperationsHook(CNWSMessage *thisPtr, CNWSPlayer *pPlayer, uint8_t nMinor)
+int32_t HandlePlayerToServerPVPListOperationsHook(CNWSMessage *thisPtr, CNWSPlayer *pPlayer, uint8_t nMinor)
 {
     int32_t retVal;
     if (nMinor != Constants::MessagePVPMinor::AttitudeChange)
     {
-        retVal = m_HandlePlayerToServerPVPListOperationsHook->CallOriginal<int32_t>(thisPtr, pPlayer, nMinor);;
+        retVal = s_HandlePlayerToServerPVPListOperationsHook->CallOriginal<int32_t>(thisPtr, pPlayer, nMinor);
     }
     else
     {
-        auto target = Utils::PeekMessage<Types::ObjectID>(thisPtr, 0) & 0x7FFFFFFF;
+        auto target = Utils::PeekMessage<ObjectID>(thisPtr, 0) & 0x7FFFFFFF;
         auto attitude = (bool)(Utils::PeekMessage<uint8_t>(thisPtr, 4) & 0x10);
 
-        auto PushAndSignal = [&](std::string ev) -> bool {
-            Events::PushEventData("TARGET_OBJECT_ID", Utils::ObjectIDToString(target));
-            Events::PushEventData("ATTITUDE", std::to_string(attitude));
+        auto PushAndSignal = [&](const std::string& ev) -> bool {
+            PushEventData("TARGET_OBJECT_ID", Utils::ObjectIDToString(target));
+            PushEventData("ATTITUDE", std::to_string(attitude));
 
-            return Events::SignalEvent(ev, pPlayer->m_oidNWSObject);
+            return SignalEvent(ev, pPlayer->m_oidNWSObject);
         };
 
         if (PushAndSignal("NWNX_ON_PVP_ATTITUDE_CHANGE_BEFORE"))
         {
-            retVal = m_HandlePlayerToServerPVPListOperationsHook->CallOriginal<int32_t>(thisPtr, pPlayer, nMinor);
+            retVal = s_HandlePlayerToServerPVPListOperationsHook->CallOriginal<int32_t>(thisPtr, pPlayer, nMinor);
         }
         else
         {
