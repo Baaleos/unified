@@ -1,11 +1,13 @@
-#include "Platform/Debug.hpp"
+#include "nwnx.hpp"
 #include <cstring>
 #include <cstdio>
 
 #include <execinfo.h>
 #include <signal.h>
+#include <map>
 
-namespace NWNXLib::Platform::Debug {
+namespace NWNXLib::Platform
+{
 
 bool IsDebuggerPresent()
 {
@@ -44,6 +46,7 @@ std::string GetStackTrace(uint8_t levels)
             std::snprintf(backtraceBuffer, sizeof(backtraceBuffer), "    %s\n", resolvedFrames[i]);
             std::strncat(buffer, backtraceBuffer, sizeof(buffer)-1);
         }
+        free(resolvedFrames);
     }
     return std::string(buffer);
 }

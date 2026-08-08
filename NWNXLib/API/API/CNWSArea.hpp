@@ -12,7 +12,6 @@
 #include "CResARE.hpp"
 #include "CResHelper.hpp"
 #include "CResRef.hpp"
-#include "NWAREAEXPANSION.hpp"
 #include "Vector.hpp"
 
 
@@ -24,8 +23,7 @@ struct CERFFile;
 struct CGameEffect;
 struct CGameObject;
 struct CNWSAmbientSound;
-struct CNWSAreaGridSuccessors;
-struct CNWSAreaGridTransTableEntry;
+struct CNWSAreaGridPoint;
 struct CNWSAreaInterTileSuccessors;
 struct CNWSCreature;
 struct CNWSPlayer;
@@ -40,6 +38,14 @@ struct NWAREAHEADER;
 typedef int BOOL;
 typedef uint32_t OBJECT_ID;
 
+struct CNWSAreaGrassOverride
+{
+    CExoString sTexture;
+    float fDensity;
+    float fHeight;
+    Vector vAmbient;
+    Vector vDiffuse;
+};
 
 struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
 {
@@ -48,7 +54,6 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     int32_t m_nObjectByNameIndex;
     uint32_t m_nLastHeartbeatScriptCalendarDay;
     uint32_t m_nLastHeartbeatScriptTimeOfDay;
-    CExoLinkedList<NWAREAEXPANSION> m_lstExpansions;
     CExoString m_sComments;
     CExoLocString m_lsName;
     CExoString m_sTag;
@@ -65,7 +70,6 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     CExoArrayList<OBJECT_ID> m_aSubAreas;
     int32_t * m_pnInterTileTravel;
     float * m_pfInterTileExit;
-    int32_t * m_pnInterTileRegionVisited;
     uint8_t * m_pnInterTileRegionDepths;
     int32_t m_nInterTileTravelLength;
     int32_t m_nInterTileGoalX;
@@ -75,7 +79,6 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     float m_fGoalTargetY;
     CPathfindInformation * m_pSearchInfo;
     CPathfindInformation * m_pSoundPathInfo;
-    CNWSAreaGridTransTableEntry * m_pcGridTransTableEntry;
     int32_t g_nUnsmoothedWPList;
     float * g_pfUnsmoothedWPList;
     int32_t g_nSmoothedWPList;
@@ -104,6 +107,8 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     int32_t m_nEnvironmentalAudio;
     uint16_t m_nLoadScreenID;
     CExoString m_sDisplayName;
+    BOOL m_bDefaultGrassDisabled;
+    std::unordered_map<int32_t, CNWSAreaGrassOverride> m_areaGrassOverrides;
     CNWSUUID m_pUUID;
 
     CNWSArea(CResRef cResRef, BOOL bSetAutoRequest, OBJECT_ID oidId = 0x7f000000);
@@ -114,9 +119,9 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     BOOL AIUpdate();
     Vector ComputeAwayVector(Vector vCurrentPosition, Vector vPositionToMoveAwayFrom, float fMoveAwayRange, CPathfindInformation * pPathInfo);
     int32_t ComputeBestCorner(float fX1, float fY1, float fX2, float fY2, float fX3, float fY3, float fPersonalSpace, float fCreatureHeight, float * fNewX1, float * fNewY1, float * fNewX2, float * fNewY2);
-    BOOL TestSafeLocationPoint(Vector vTestPosition, CPathfindInformation * pPathfindInfo);
+    BOOL TestSafeLocationPoint(Vector vTestPosition, CPathfindInformation * pPathfindInfo, bool bDisregardCurrentTarget = false);
     BOOL ComputeSafeLocation(Vector vPosition, float fSearchRadius, CPathfindInformation * pPathfindInfo, BOOL bWalkStraightLineRequired, Vector * vNewvector);
-    BOOL ComputeSafeLocationInDirection(Vector vPosition, Vector vDirection, float fSearchRadius, CPathfindInformation * pPathfindInfo, BOOL bWalkStraightLineRequired, Vector * vNewVector);
+    BOOL ComputeSafeLocationInDirection(Vector vPosition, Vector vDirection, float fSearchRadisusMin, float fSearchRadiusMax, CPathfindInformation * pPathfindInfo, BOOL bWalkStraightLineRequired, Vector * vNewVector);
     BOOL ComputeNonVisibleLocation(Vector vTargetPosition, CPathfindInformation * pPathfindInfo, BOOL bWalkStraightLineRequired, Vector * vNewPosition, float fTargetRadius);
     int32_t CountVisibleToPlayers(Vector vPosition, int32_t nMaxPlayers);
     float ComputeHeight(Vector vPosition);
@@ -135,33 +140,30 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     int32_t InterTileDFS(int32_t level, int32_t depth, int32_t x, int32_t y, int32_t region);
     int32_t InterTileDFSGenerateSuccessors(int32_t level, int32_t x, int32_t y, int32_t region);
     int32_t InterTileDFSSoundPath(uint8_t * pTransTable, int32_t nDepth, int32_t x, int32_t y, int32_t nRegion);
-    BOOL LoadArea(BOOL bLoadStateInfo = false, CResGFF * cOverrideGitGFF = nullptr, CResStruct * cOverrideGitTopLevelStruct = nullptr);
+    BOOL LoadArea(BOOL bLoadStateInfo = false, BOOL bLoadOID = true, CResGFF * cOverrideGitGFF = nullptr, CResStruct * cOverrideGitTopLevelStruct = nullptr);
     virtual BOOL NoCreaturesOnLine(float fSourceX, float fSourceY, float fTargetX, float fTargetY, CPathfindInformation * pPathfindInfo, BOOL bCheckSourceOccluded = true, BOOL bIgnoreAssociates = false, OBJECT_ID * poidBlockingCreature = nullptr, BOOL bEvaluateOverlappingTarget = false);
-    BOOL EvaluateOverlappingTargets(CPathfindInformation * pPathfindInfo, Vector vPosition, OBJECT_ID oidAreaCreature, float fSourceX, float fSourceY, float fBothCreaturesPersonalSpace, BOOL bCheckSourceOccluded, BOOL bEvaluateOverlappingTarget, OBJECT_ID * poidBlockingCreature);
+    BOOL EvaluateOverlappingTargets(CPathfindInformation * pPathfindInfo, Vector vPosition, OBJECT_ID oidAreaCreature, float fSourceX, float fSourceY, float fBothCreaturesPersonalSpace, BOOL bEvaluateOverlappingTarget);
     BOOL PackAreaIntoMessage(int32_t nX, int32_t nY, int32_t nZ, CNWSPlayer * pPlayer);
-    uint32_t PlotGridPath(CPathfindInformation * pcPathfindInformation, uint64_t nTimeSlice);
-    BOOL GridDFSearch(int32_t nStepNumber, int32_t nPathLength, int32_t nStepsToExplore, int32_t nX, int32_t nY, int32_t nZ);
-    int32_t GridDFSGenerateSuccessors(int32_t nPathLength, int32_t nStepsToExplore, int32_t nX, int32_t nY, int32_t nZ, CNWSAreaGridSuccessors * * pcSuccessors);
-    void GridDFSTransTableInitialize();
-    int32_t GridDFSTransTableHash(int32_t nX, int32_t nY);
-    BOOL GridDFSTransTableGet(int32_t nX, int32_t nY, int32_t * nShortestPath, int32_t * nStepsExplored);
-    void GridDFSTransTablePut(int32_t nX, int32_t nY, int32_t nPathLength, int32_t nStepsExplored);
+    uint32_t PlotGridPath(CPathfindInformation * pcPathfindInformation, uint64_t nTimeSlice, bool bMoveToNearest);
+    void GridSearchPath(int32_t nPathID);
+    bool GridSearchPathInDirection(int32_t nStepNumber, int32_t nX, int32_t nY, int nDirectionX, int nDirectionY, bool bTestDirectLine, CNWSAreaGridPoint * pcSearch);
     uint32_t PlotPath(CPathfindInformation * pcPathfindInformation, uint64_t nTimeSlice);
     int32_t RemoveInterTileExit(int32_t nTileX, int32_t nTileY, int32_t nEntrance, int32_t nExit);
     BOOL RemoveObjectFromArea(OBJECT_ID id);
+    void SaveArea(CResGFF * pRes, CResStruct * pStruct);
     void SaveArea(CERFFile * cSaveFile, CExoString & sName);
     void SaveGIT(CResGFF * pRes, CResStruct * pStruct, CExoArrayList<OBJECT_ID> & aPlayers, BOOL bSaveOIDs);
     void SaveGIT(CERFFile * cSaveFile, CExoString & sName, CExoArrayList<OBJECT_ID> & aPlayers);
-    BOOL LoadGIT(BOOL bLoadStateInfo);
-    void LoadGIT(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo);
+    BOOL LoadGIT(BOOL bLoadStateInfo, BOOL bLoadOID);
+    void LoadGIT(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
     void SmoothCornerOptimize(int32_t nOldWayPoints, float * pfOldWayPoints, int32_t * nNewWayPoints, float * * pfNewWayPoints);
     int32_t SmoothPointsOnPath();
     void SmoothSelection(int32_t nOldWayPoints, float * pfOldWayPoitns, int32_t * nNewWayPoints, float * * pfNewWayPoints);
     void SmoothSelectNodes(int32_t nOldWayPoints, float * pfOldWayPoints, int32_t * nNewWayPoints, float * * pfNewWayPoints, int32_t bChopIntoMeterSegments, int32_t bSelectBestLines);
     int32_t TestDirectLine(float fStartX, float fStartY, float fEndX, float fEndY, float fPersonalSpace, float fCreatureHeight, BOOL bIgnoreClosedDoors = true);
-    int32_t TestLineWalkable(float fStartX, float fStartY, float fEndX, float fEndY, float fPersonalSpace);
+    int32_t TestLineWalkable(float fStartX, float fStartY, float fEndX, float fEndY);
     void UnloadArea();
-    void PlayVisualEffect(uint16_t nEffectId, Vector vPosition);
+    void PlayVisualEffect(CGameEffect * pEffect, Vector vPosition);
     BOOL PlotSoundPath(CPathfindInformation * pcPathfindInformation);
     BOOL GetFirstObjectIndiceByX(int32_t * nIndice, float fMinX);
     BOOL UpdatePositionInObjectsArray(CGameObject * pUpdateObject);
@@ -179,19 +181,20 @@ struct CNWSArea : CNWArea, CResHelper<CResARE, 2012>, CGameObject
     int32_t GetSurfaceMaterial(Vector vPosition);
     BOOL PositionWalkable(Vector vPosition);
     void SetCurrentWeather(uint8_t nWeatherType, BOOL bWeatherStarted);
+    BOOL RunEventScript(int32_t nScript, CExoString * psOverrideScriptName = nullptr);
     BOOL LoadAreaHeader(CResStruct * pStruct);
     BOOL LoadTileSetInfo(CResStruct * pStruct);
-    BOOL LoadCreatures(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
+    BOOL LoadCreatures(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
     BOOL LoadPlayers(CResGFF * pRes, CResStruct * pStruct);
-    BOOL LoadItems(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadDoors(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadTriggers(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadEncounters(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadWaypoints(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadSounds(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadPlaceables(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadStores(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
-    BOOL LoadAreaEffects(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo = false);
+    BOOL LoadItems(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadDoors(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadTriggers(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadEncounters(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadWaypoints(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadSounds(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadPlaceables(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadStores(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
+    BOOL LoadAreaEffects(CResGFF * pRes, CResStruct * pStruct, BOOL bLoadStateInfo, BOOL bLoadOID);
     BOOL LoadProperties(CResGFF * pRes, CResStruct * pStruct);
     void IncreaseAILevelPriority();
     void DecreaseAILevelPriority();

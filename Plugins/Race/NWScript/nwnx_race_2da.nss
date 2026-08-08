@@ -2,7 +2,6 @@
 /// @file nwnx_race_2da.nss
 /// @brief Parse a column in the racialtypes.2da to load the modifiers.
 #include "nwnx_race"
-#include "nwnx_util"
 
 /// @ingroup race
 /// @brief Translate a modifier type from a string to its constant.
@@ -11,7 +10,7 @@
 int NWNX_Race_GetModifierConstant(string raceMod);
 
 /// @ingroup race
-/// @brief Loops through racialtypes.2da and checks for a the column for racial modifications and sets them.
+/// @brief Loops through racialtypes.2da and checks for the column for racial modifications and sets them.
 /// @note Requires NWNX_Util_Get2DARowCount()
 /// @param sColumnName The column name in the racialtypes.2da that defines the 2da for the racial mods.
 void NWNX_Race_LoadRacialModifiers(string sColumnName = "RacialModsTable");
@@ -45,14 +44,14 @@ int NWNX_Race_GetModifierConstant(string raceMod)
 
 void NWNX_Race_LoadRacialModifiers(string sColumnName = "RacialModsTable")
 {
-    int iRaceRows = NWNX_Util_Get2DARowCount("racialtypes");
+    int iRaceRows = Get2DARowCount("racialtypes");
     int iRace;
     for (iRace = 0; iRace < iRaceRows; iRace++)
     {
         string sRaceModTable = Get2DAString("racialtypes", sColumnName, iRace);
         if(sRaceModTable != "")
         {
-            int iRaceModRows = NWNX_Util_Get2DARowCount(sRaceModTable);
+            int iRaceModRows = Get2DARowCount(sRaceModTable);
             int iRaceMod;
             for (iRaceMod = 0; iRaceMod < iRaceModRows; iRaceMod++)
             {

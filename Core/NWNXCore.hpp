@@ -1,14 +1,8 @@
 #pragma once
 
-#include "API/Types.hpp"
+#include "nwnx.hpp"
 #include "API/CServerExoAppInternal.hpp"
-#include "API/CNWVirtualMachineCommands.hpp"
-#include "Common.hpp"
-#include "Plugin.hpp"
-#include "Services/Services.hpp"
-#include "Services/Hooks/Hooks.hpp"
-#include "Services/Plugins/Plugins.hpp"
-#include "Services/PerObjectStorage/PerObjectStorage.hpp"
+#include "API/CNWSVirtualMachineCommands.hpp"
 
 #include <functional>
 #include <map>
@@ -22,50 +16,42 @@ public:
     NWNXCore();
     ~NWNXCore();
 
-    static int32_t GetVarHandler(CNWVirtualMachineCommands*, int32_t, int32_t);
-    static int32_t SetVarHandler(CNWVirtualMachineCommands*, int32_t, int32_t);
-    static int32_t TagEffectHandler(CNWVirtualMachineCommands*, int32_t, int32_t);
-    static int32_t TagItemPropertyHandler(CNWVirtualMachineCommands*, int32_t, int32_t);
-    static int32_t PlaySoundHandler(CNWVirtualMachineCommands*, int32_t, int32_t);
-
     std::unique_ptr<NWNXLib::Services::ServiceList> m_services;
 
-private: // Structures
-    using PluginProxyServiceMap = std::map<
-        NWNXLib::Services::Plugins::RegistrationToken,
-        std::unique_ptr<NWNXLib::Services::ProxyServiceList>,
-        std::function<bool(
-            const NWNXLib::Services::Plugins::RegistrationToken&,
-            const NWNXLib::Services::Plugins::RegistrationToken&)>>;
+    const std::vector<std::string>& GetCustomResourceDirectoryAliases() const { return m_CustomResourceDirectoryAliases; }
 
 private:
-    std::unique_ptr<NWNXLib::Hooking::FunctionHook> m_createServerHook;
+    NWNXLib::Hooks::Hook m_createServerHook;
+    NWNXLib::Hooks::Hook m_destroyServerHook;
+    NWNXLib::Hooks::Hook m_mainLoopInternalHook;
+    NWNXLib::Hooks::Hook m_vmPlaySoundHook;
+    NWNXLib::Hooks::Hook m_nwnxFunctionManagementHook;
+
     std::unique_ptr<NWNXLib::Services::ProxyServiceList> m_coreServices;
-    PluginProxyServiceMap m_pluginProxyServiceMap;
 
     std::unique_ptr<NWNXLib::Services::ServiceList> ConstructCoreServices();
     std::unique_ptr<NWNXLib::Services::ProxyServiceList> ConstructProxyServices(const std::string& plugin);
 
-    void ConfigureLogLevel(const std::string& plugin, const NWNXLib::Services::ConfigProxy& config);
+    void CleanupPreload();
+    void ConfigureLogLevel(const std::string& plugin);
 
     void InitialSetupHooks();
     void InitialVersionCheck();
     void InitialSetupPlugins();
-    void InitialSetupResourceDirectory();
+    void InitialSetupResourceDirectories();
     void InitialSetupCommands();
-
-    void UnloadPlugins();
-    void UnloadPlugin(std::pair<NWNXLib::Services::Plugins::RegistrationToken,
-        std::unique_ptr<NWNXLib::Services::ProxyServiceList>>&& plugin);
 
     void UnloadServices();
     void Shutdown();
 
     static void CreateServerHandler(CAppManager*);
     static void DestroyServerHandler(CAppManager*);
-    static void MainLoopInternalHandler(bool, CServerExoAppInternal*);
+    static int32_t MainLoopInternalHandler(CServerExoAppInternal*);
+    static int32_t PlaySoundHandler(CNWSVirtualMachineCommands*, int32_t, int32_t);
+    static int32_t NWNXFunctionManagementHandler(CNWSVirtualMachineCommands*, int32_t, int32_t);
 
     int m_ScriptChunkRecursion;
+    std::vector<std::string> m_CustomResourceDirectoryAliases;
 };
 
 }

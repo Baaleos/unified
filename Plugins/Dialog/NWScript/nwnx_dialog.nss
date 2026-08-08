@@ -3,8 +3,6 @@
 /// @{
 /// @file nwnx_dialog.nss
 
-#include "nwnx"
-
 const string NWNX_Dialog = "NWNX_Dialog"; ///< @private
 
 /// @name Dialog Node Types
@@ -80,60 +78,46 @@ void NWNX_Dialog_End(object oObject);
 
 int NWNX_Dialog_GetCurrentNodeType()
 {
-    string sFunc = "GetCurrentNodeType";
-
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Dialog, sFunc);
+    NWNXCall(NWNX_Dialog, "GetCurrentNodeType");
+    return NWNXPopInt();
 }
 
 int NWNX_Dialog_GetCurrentScriptType()
 {
-    string sFunc = "GetCurrentScriptType";
-
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Dialog, sFunc);
+    NWNXCall(NWNX_Dialog, "GetCurrentScriptType");
+    return NWNXPopInt();
 }
 
 int NWNX_Dialog_GetCurrentNodeID()
 {
-    string sFunc = "GetCurrentNodeID";
-
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Dialog, sFunc);
+    NWNXCall(NWNX_Dialog, "GetCurrentNodeID");
+    return NWNXPopInt();
 }
 
 int NWNX_Dialog_GetCurrentNodeIndex()
 {
-    string sFunc = "GetCurrentNodeIndex";
-
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Dialog, sFunc);
+    NWNXCall(NWNX_Dialog, "GetCurrentNodeIndex");
+    return NWNXPopInt();
 }
 
 string NWNX_Dialog_GetCurrentNodeText(int language=NWNX_DIALOG_LANGUAGE_ENGLISH, int gender=GENDER_MALE)
 {
-    string sFunc = "GetCurrentNodeText";
-
-    NWNX_PushArgumentInt(NWNX_Dialog, sFunc, gender);
-    NWNX_PushArgumentInt(NWNX_Dialog, sFunc, language);
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Dialog, sFunc);
+    NWNXPushInt(gender);
+    NWNXPushInt(language);
+    NWNXCall(NWNX_Dialog, "GetCurrentNodeText");
+    return NWNXPopString();
 }
 
 void NWNX_Dialog_SetCurrentNodeText(string text, int language=NWNX_DIALOG_LANGUAGE_ENGLISH, int gender=GENDER_MALE)
 {
-    string sFunc = "SetCurrentNodeText";
-
-    NWNX_PushArgumentInt(NWNX_Dialog, sFunc, gender);
-    NWNX_PushArgumentInt(NWNX_Dialog, sFunc, language);
-    NWNX_PushArgumentString(NWNX_Dialog, sFunc, text);
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
+    NWNXPushInt(gender);
+    NWNXPushInt(language);
+    NWNXPushString(text);
+    NWNXCall(NWNX_Dialog, "SetCurrentNodeText");
 }
 
 void NWNX_Dialog_End(object oObject)
 {
-    string sFunc = "End";
-
-    NWNX_PushArgumentObject(NWNX_Dialog, sFunc, oObject);
-    NWNX_CallFunction(NWNX_Dialog, sFunc);
+    NWNXPushObject(oObject);
+    NWNXCall(NWNX_Dialog, "End");
 }

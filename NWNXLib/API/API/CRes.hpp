@@ -18,7 +18,6 @@ typedef CExoLinkedListNode * CExoLinkedListPosition;
 struct CRes
 {
     uint16_t m_nDemands;
-    uint16_t m_nRequests;
     RESID m_nID;
     uint32_t m_status;
     void * m_pResource;
@@ -29,11 +28,11 @@ struct CRes
     BOOL m_bAllocTrailingData;
     CExoLinkedListPosition m_pos;
     BOOL m_bAllowCaching;
+    CExoString m_sDebugLabel;
 
     CRes();
-    CRes(RESID nNewID);
+    CRes(RESID nNewID, const CExoString& sDebugLabel);
     virtual ~CRes();
-    int32_t CancelRequest();
     void * Demand();
     BOOL ReadRaw(int32_t nSize, char * pBuffer);
     void Dump(BOOL bRemove = false);
@@ -41,13 +40,11 @@ struct CRes
     int32_t GetDemands();
     virtual int32_t GetFixedResourceSize();
     virtual int32_t GetFixedResourceDataOffset();
-    int32_t GetRequests();
     RESID GetID();
     int32_t GetSize();
     virtual BOOL OnResourceFreed();
     virtual BOOL OnResourceServiced();
     int32_t Release();
-    int32_t Request();
     void SetID(RESID nNewID);
 
 

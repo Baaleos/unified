@@ -1,7 +1,7 @@
 #pragma once
 #include "nwn_api.hpp"
 
-#include "AurList.hpp"
+#include "CExoArrayList.hpp"
 
 
 #ifdef NWN_API_PROLOGUE
@@ -17,6 +17,7 @@ typedef int BOOL;
 
 struct CNetLayerWindow
 {
+    CNetInstance m_nInstance;
     BOOL m_bInitialized;
     CNetLayerInternal * m_pNetLayer;
     BOOL m_bWindowInUse;
@@ -43,18 +44,16 @@ struct CNetLayerWindow
     uint16_t m_pOutgoingBuffers[16];
     BOOL m_pbTimeOutSet[16];
     uint32_t m_pnTimeOut[16];
-    BOOL m_pbTimeOutDelay[16];
     uint16_t m_pIncomingBuffers[16];
     BOOL m_pbArrived[16];
-    AurList<uint16_t> m_lQueueOutgoingHiFrames;
-    AurList<uint16_t> m_lQueueOutgoingLoFrames;
-    AurList<uint16_t> m_lQueueIncomingHiFrames;
-    AurList<uint16_t> m_lQueueIncomingLoFrames;
-    uint8_t m_pLowPriorityHoldBuffer[CEXONET_MAX_MESSAGE_LENGTH];
-    uint8_t m_pHighPriorityHoldBuffer[CEXONET_MAX_MESSAGE_LENGTH];
+    CExoArrayList<uint16_t> m_lQueueOutgoingHiFrames;
+    CExoArrayList<uint16_t> m_lQueueOutgoingLoFrames;
+    CExoArrayList<uint16_t> m_lQueueIncomingHiFrames;
+    CExoArrayList<uint16_t> m_lQueueIncomingLoFrames;
+    uint8_t m_pLowPriorityHoldBuffer[960];
+    uint8_t m_pHighPriorityHoldBuffer[960];
     uint32_t m_nLowPriorityHoldBufferSize;
     uint32_t m_nHighPriorityHoldBufferSize;
-    BOOL m_bCrapNetBandwidthNoSend;
     uint32_t m_nOutgoingNumBuffers;
     uint32_t m_nIncomingNumBuffers;
     uint32_t m_nOutgoingPacketsSinceResend;

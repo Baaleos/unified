@@ -1,19 +1,18 @@
 #pragma once
 
-#include "Plugin.hpp"
-#include "Services/Events/Events.hpp"
+#include "nwnx.hpp"
 #include "Targets/ITarget.hpp"
 
 #include <memory>
 
-using ArgumentStack = NWNXLib::Services::Events::ArgumentStack;
+using ArgumentStack = NWNXLib::ArgumentStack;
 
 namespace SQL {
 
 class SQL : public NWNXLib::Plugin
 {
 public:
-    SQL(const Plugin::CreateParams& params);
+    SQL(NWNXLib::Services::ProxyServiceList* services);
     virtual ~SQL();
 
     ArgumentStack PrepareQuery                  (ArgumentStack&& args);
@@ -26,12 +25,16 @@ public:
     ArgumentStack PreparedFloat                 (ArgumentStack&& args);
     ArgumentStack PreparedObjectId              (ArgumentStack&& args);
     ArgumentStack PreparedObjectFull            (ArgumentStack&& args);
+    ArgumentStack PreparedNULL                  (ArgumentStack&& args);
     ArgumentStack ReadFullObjectInActiveRow     (ArgumentStack&& args);
     ArgumentStack GetAffectedRows               (ArgumentStack&& args);
     ArgumentStack GetDatabaseType               (ArgumentStack&& args);
     ArgumentStack DestroyPreparedQuery          (ArgumentStack&& args);
     ArgumentStack GetLastError                  (ArgumentStack&& args);
     ArgumentStack GetPreparedQueryParamCount    (ArgumentStack&& args);
+
+    ITarget* GetTarget() { return m_target.get(); }
+
 private:
     bool Reconnect(int32_t attempts = 1);
 
@@ -43,6 +46,7 @@ private:
     bool m_queryMetrics;
     bool m_queryPrepared;
     bool m_utf8;
+    std::string m_databaseType;
 };
 
 }

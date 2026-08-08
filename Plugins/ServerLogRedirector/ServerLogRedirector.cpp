@@ -1,62 +1,18 @@
-#include "ServerLogRedirector.hpp"
-#include "API/CExoString.hpp"
-#include "Services/Config/Config.hpp"
-#include "Services/Hooks/Hooks.hpp"
+#include "nwnx.hpp"
 
-using namespace NWNXLib;
-
-static ServerLogRedirector::ServerLogRedirector* g_plugin;
-
-NWNX_PLUGIN_ENTRY Plugin::Info* PluginInfo()
-{
-    return new Plugin::Info
-    {
-        "ServerLogRedirector",
-        "Redirects server log output to the NWNX logger.",
-        "niv",
-        "niv@nwnx.io",
-        1,
-        true
-    };
-}
-
-NWNX_PLUGIN_ENTRY Plugin* PluginLoad(Plugin::CreateParams params)
-{
-    g_plugin = new ServerLogRedirector::ServerLogRedirector(params);
-    return g_plugin;
-}
-
-namespace ServerLogRedirector {
+#include "API/CExoDebugInternal.hpp"
+#include "API/CNWSVirtualMachineCommands.hpp"
 
 using namespace NWNXLib;
 using namespace NWNXLib::API;
-using namespace NWNXLib::Services;
 
-static bool printString;
-
-ServerLogRedirector::ServerLogRedirector(const Plugin::CreateParams& params)
-    : Plugin(params)
-{
-    // Hook logging so it always emits to stdout/stderr.
-    GetServices()->m_hooks->RequestSharedHook<Functions::_ZN17CExoDebugInternal14WriteToLogFileERK10CExoString,
-        void, CExoDebugInternal*, CExoString*>(&WriteToLogFileHook);
-
-    GetServices()->m_hooks->RequestSharedHook<Functions::_ZN17CExoDebugInternal16WriteToErrorFileERK10CExoString,
-        void, CExoDebugInternal*, CExoString*>(&WriteToErrorFileHook);
-
-    GetServices()->m_hooks->RequestSharedHook<Functions::_ZN25CNWVirtualMachineCommands25ExecuteCommandPrintStringEii,
-        int32_t>(+[](bool before, CNWVirtualMachineCommands*, int32_t, int32_t){ printString = before; });
-}
-
-ServerLogRedirector::~ServerLogRedirector()
-{
-}
+static bool s_printString;
 
 inline std::string TrimMessage(CExoString* message)
 {
     std::string s = std::string(message->CStr());
 
-    if (!printString)
+    if (!s_printString)
     {
         // Eat the auto-added timestamp.
         auto idxOfBracket = s.find_first_of(']');
@@ -64,25 +20,21 @@ inline std::string TrimMessage(CExoString* message)
             s.erase(0, idxOfBracket + 1);
     }
 
-    return Utils::trim(s);
+    return String::Trim(s);
 }
 
-void ServerLogRedirector::WriteToLogFileHook(bool before, CExoDebugInternal*, CExoString* message)
-{
-    if (before)
+static Hooks::Hook s_WriteToLogFileHook = Hooks::HookFunction((void*)&CExoDebugInternal::WriteToLogFile,
+    +[](CExoDebugInternal *pExoDebugInternal, CExoString* message) -> void
     {
-        std::string str = TrimMessage(message);
-        LOG_INFO("(Server) %s", str);
-    }
-}
+        LOG_INFO("(Server) %s", TrimMessage(message));
+        s_WriteToLogFileHook->CallOriginal<void>(pExoDebugInternal, message);
+    }, Hooks::Order::VeryEarly);
 
-void ServerLogRedirector::WriteToErrorFileHook(bool before, CExoDebugInternal*, CExoString* message)
-{
-    if (before)
+static Hooks::Hook s_ExecuteCommandPrintStringHook = Hooks::HookFunction((void*)&CNWSVirtualMachineCommands::ExecuteCommandPrintString,
+    +[](CNWSVirtualMachineCommands *pVirtualMachineCommands, int32_t nCommandId, int32_t nParameters) -> int32_t
     {
-        std::string str = TrimMessage(message);
-        LOG_INFO("(Error) %s", str);
-    }
-}
-
-}
+        s_printString = true;
+        auto retVal = s_ExecuteCommandPrintStringHook->CallOriginal<int32_t>(pVirtualMachineCommands, nCommandId, nParameters);
+        s_printString = false;
+        return retVal;
+    }, Hooks::Order::VeryEarly);

@@ -35,6 +35,7 @@ struct CNWArea
     int32_t m_nStaticObjectVertexArraySize;
     int32_t m_nStaticObjectVertices;
     Vector * m_pvStaticObjectVertices;
+    Vector * m_pvStaticObjectBoundingBoxes;
     int32_t m_nStaticBoundingBoxes;
     int32_t m_nStaticBoundingBoxesFilled;
     Vector * m_pvStaticBoundingBoxes;
@@ -46,11 +47,13 @@ struct CNWArea
     uint32_t m_nMoonFogColor;
     uint8_t m_nMoonFogAmount;
     BOOL m_bMoonShadows;
+    Vector m_vMoonDirection;
     uint32_t m_nSunAmbientColor;
     uint32_t m_nSunDiffuseColor;
     uint32_t m_nSunFogColor;
     uint8_t m_nSunFogAmount;
     BOOL m_bSunShadows;
+    Vector m_vSunDirection;
     BOOL m_bUseDayNightCycle;
     BOOL m_bIsNight;
     uint8_t m_nSkyBox;
@@ -58,14 +61,20 @@ struct CNWArea
     uint8_t m_nChanceOfSnow;
     uint8_t m_nChanceOfLightning;
     uint8_t m_nWindAmount;
+    Vector m_vWindDirection;
+    float m_fWindMagnitude;
+    float m_fWindYaw;
+    float m_fWindPitch;
     BOOL m_bNoRestingAllowed;
     uint8_t m_nShadowOpacity;
     float m_fFogClipDistance;
+    BOOL m_bTileBorderDisabled;
 
     CNWArea();
     virtual ~CNWArea();
     int32_t AddStaticObject(OBJECT_ID oidObject, const Vector & vOrientation, const Vector & vPosition, int32_t nVertices, Vector * pvVertices, int32_t nTriangles, int32_t * pnTriangles);
     void ReplaceStaticObject(int32_t nObjectPosition, OBJECT_ID oidObject, const Vector & vOrientation, const Vector & vPosition, int32_t nVertices, Vector * pvVertices, int32_t nTriangles, int32_t * pnTriangles);
+    void GetStaticObjectBoundingBox(int32_t nStaticObjectIndex, Vector & vMinimum, Vector & vMaximum);
     int32_t AddStaticBoundingBox(OBJECT_ID oidObject, const Vector & vMinimum, const Vector & vMaximum);
     int32_t RemoveStaticBoundingBox(OBJECT_ID oidObject);
     virtual BOOL NoCreaturesOnLine(float fSourceX, float fSourceY, float fTargetX, float fTargetY, CPathfindInformation * pPathfindInfo, BOOL bCheckSourceOccluded = true, BOOL bIgnoreAssociates = false, OBJECT_ID * poidBlockingCreature = nullptr, BOOL bEvaluateOverlappingTarget = false);
@@ -86,6 +95,7 @@ struct CNWArea
     virtual BOOL SetFog(int32_t nFogValue, Vector vColor);
     virtual BOOL SetIsNight(BOOL bIsNight);
     virtual BOOL SetWind(uint8_t nAmount);
+    void SetCustomWind(Vector vDirection, float fMagnitude, float fYaw, float fPitch);
 
 
 #ifdef NWN_CLASS_EXTENSION_CNWArea

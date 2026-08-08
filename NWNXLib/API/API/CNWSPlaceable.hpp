@@ -65,7 +65,6 @@ struct CNWSPlaceable : CNWSObject
     uint8_t m_nReflexSave;
     CExoArrayList<OBJECT_ID> m_poidCreatures;
     BOOL m_bHasInventory;
-    BOOL m_bUseable;
     BOOL m_bPickable;
     BOOL m_bLockable;
     BOOL m_bDieWhenEmpty;
@@ -106,7 +105,7 @@ struct CNWSPlaceable : CNWSObject
     void AIUpdate();
     void DoDamage(int32_t nDamage);
     void EventHandler(uint32_t nEventId, OBJECT_ID nCallerObjectId, void * pScript, uint32_t nCalendarDay, uint32_t nTimeOfDay);
-    BOOL LoadPlaceable(CResGFF * pRes, CResStruct * cPlaceableStruct, CExoString * pTag = nullptr);
+    BOOL LoadPlaceable(CResGFF * pRes, CResStruct * cPlaceableStruct, BOOL bLoadOID, CExoString * pTag = nullptr);
     BOOL LoadFromTemplate(CResRef cResRef, CExoString * pTag = nullptr);
     BOOL LoadBodyBag(uint16_t nAppearance);
     BOOL SavePlaceable(CResGFF * pRes, CResStruct * pStruct, BOOL bSaveOIDs);
@@ -127,6 +126,8 @@ struct CNWSPlaceable : CNWSObject
     void ClosePlaceableForAllPlayers();
     void CalculateActionPoints();
 
+    inline CExoLocString &GetFirstName() override { return m_sLocName; }
+    inline CExoLocString &GetDescription() { return m_sDescription; }
 
 #ifdef NWN_CLASS_EXTENSION_CNWSPlaceable
     NWN_CLASS_EXTENSION_CNWSPlaceable

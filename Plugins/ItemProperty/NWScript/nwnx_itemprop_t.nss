@@ -4,6 +4,8 @@
 void printip(struct NWNX_IPUnpacked n)
 {
     string s = "Unpacked IP: \n";
+
+    s += "sID = " + "'" + n.sID + "'" + "\n";
     s += "nProperty = " + IntToString(n.nProperty) + "\n";
     s += "nSubType = " + IntToString(n.nSubType) + "\n";
     s += "nCostTable = " + IntToString(n.nCostTable) + "\n";
@@ -37,6 +39,16 @@ void main()
     NWNX_Tests_Report("NWNX_ItemProperty", "PackIP", GetItemPropertyCostTableValue(ip2) == unpacked.nCostTableValue);
     NWNX_Tests_Report("NWNX_ItemProperty", "PackIP", GetItemPropertyParam1(ip2) == unpacked.nParam1);
     NWNX_Tests_Report("NWNX_ItemProperty", "PackIP", GetItemPropertyParam1Value(ip2) == unpacked.nParam1Value);
+
+    object oItem = CreateObject(OBJECT_TYPE_ITEM, "nw_it_sparscr604", GetStartingLocation());
+    if(!GetIsObjectValid(oItem))
+    {
+        WriteTimestampedLogEntry("No item created for NWNX_ItemProp tests.");
+        return;
+    }
+    unpacked = NWNX_ItemProperty_GetActiveProperty(oItem, 0);
+    printip(unpacked);
+    NWNX_Tests_Report("NWNX_ItemProperty", "GetActiveProperty", unpacked.nProperty == ITEM_PROPERTY_CAST_SPELL);
 
     WriteTimestampedLogEntry("NWNX_ItemProperty unit test end.");
 }

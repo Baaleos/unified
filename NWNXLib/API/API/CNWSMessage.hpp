@@ -6,7 +6,10 @@
 #include "CExoString.hpp"
 #include "CNWMessage.hpp"
 #include "CResRef.hpp"
+#include "ObjectVisualTransformData.hpp"
 #include "Vector.hpp"
+#include "Vector4.hpp"
+#include <vector>
 
 
 #ifdef NWN_API_PROLOGUE
@@ -36,6 +39,9 @@ struct CNWSPlayerLUOSortedObjectList;
 struct CNWSPlayerLastUpdateObject;
 struct CNWSStore;
 struct CNWSTrigger;
+namespace Hash {
+    struct SHA1;
+}
 
 
 typedef int BOOL;
@@ -76,10 +82,9 @@ struct CNWSMessage : CNWMessage
     BOOL HandlePlayerToServerGoldMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerInventoryMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerLoginMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
-    BOOL HandlePlayerToServerMessage(uint32_t nPlayerId, uint8_t * pBuffer, uint32_t nBufferSize);
+    void HandlePlayerToServerMessage(uint32_t nPlayerId, uint8_t * pBuffer, uint32_t nBufferSize);
     BOOL HandlePlayerToServerModuleMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerParty(CNWSPlayer * pPlayer, uint8_t nMinor);
-    BOOL HandlePlayerToServerServerChatMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerServerStatusMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerQuickChatMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerJournalMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
@@ -115,20 +120,23 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerCamera_LockPitch(CNWSPlayer * pPlayer, BOOL bLock);
     BOOL SendServerToPlayerCamera_LockDistance(CNWSPlayer * pPlayer, BOOL bLock);
     BOOL SendServerToPlayerCamera_LockYaw(CNWSPlayer * pPlayer, BOOL bLock);
+    BOOL SendServerToPlayerCamera_SetLimits(CNWSPlayer * pPlayer, float fMinPitch, float fMaxPitch, float fMinDist, float fMaxDist);
+    BOOL SendServerToPlayerCamera_SetFlags(CNWSPlayer * pPlayer, int32_t nFlags);
+    BOOL SendServerToPlayerCamera_Attach(CNWSPlayer * pPlayer, OBJECT_ID oidTarget, BOOL bFindClearView);
     BOOL SendServerToPlayerLogin_CharacterQuery(CNWSPlayer * pPlayer, uint8_t & nNumClasses, int32_t * pClasses, uint8_t * pLevels, uint32_t & nXP);
     BOOL SendServerToPlayerLogin_NeedCharacter(uint32_t nPlayerId);
     BOOL SendServerToPlayerLoadBar_StartStallEvent(uint32_t nStallEvent);
     BOOL SendServerToPlayerLoadBar_UpdateStallEvent(uint32_t nWorkCompleted, uint32_t nTotalWork = 0xffffffff);
     BOOL SendServerToPlayerLoadBar_EndStallEvent(uint32_t nStallEvent, uint32_t nError = 0);
     BOOL SendServerToPlayerModule_SaveGameStatus(uint8_t nStatus);
-    BOOL SendServerToPlayerModule_EndGame(uint32_t nPlayerId, const CExoString & sMovieName);
+    BOOL SendServerToPlayerModule_EndGame(CNWSPlayer * pPlayer, const CExoString & sMovieName, const Hash::SHA1 & nwsync);
     BOOL SendServerToPlayerModule_Loading(CNWSPlayer * pPlayer);
     BOOL SendServerToPlayerSaveLoad_Status(CNWSPlayer * pPlayer, uint8_t nStallEventType, uint32_t nStatus);
     BOOL SendServerToPlayerModule_StartStartNewModule();
     BOOL SendServerToPlayerModule_EndStartNewModule(BOOL bSuccess);
     BOOL SendServerToPlayerModule_DumpPlayer(CNWSPlayer * pPlayer);
     BOOL SendServerToPlayerArea_ClientArea(CNWSPlayer * pPlayer, CNWSArea * pArea, float fX, float fY, float fZ, const Vector & vNewOrientation, BOOL bPlayerIsNewToModule);
-    BOOL SendServerToPlayerArea_VisualEffect(CNWSPlayer * pPlayer, uint16_t nAnim, Vector vPosition);
+    BOOL SendServerToPlayerArea_VisualEffect(CNWSPlayer * pPlayer, uint16_t nAnim, Vector vPosition, ObjectVisualTransformData ovtd);
     BOOL SendServerToPlayerUpdateBlackoutEffect(CNWSPlayer * pPlayer, BOOL bEnableBlackout);
     BOOL SendServerToPlayerArea_Weather(CNWSPlayer * pPlayer, uint8_t nWeatherType, BOOL bStart);
     BOOL SendServerToPlayerArea_ChangeDayNight(CNWSPlayer * pPlayer, BOOL bDay, float fTransitionTime);
@@ -136,10 +144,15 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerArea_SetName(CNWSPlayer * player, OBJECT_ID oidArea);
     BOOL SendServerToPlayerArea_Destroyed(CNWSPlayer * player, OBJECT_ID oidArea);
     BOOL SendServerToPlayerUpdateSkyBox(int32_t nSkyBox, OBJECT_ID oidArea);
-    BOOL SendServerToPlayerUpdateFogColor(uint32_t nSunFogColor, uint32_t nMoonFogColor, OBJECT_ID oidArea);
+    BOOL SendServerToPlayerUpdateFogColor(uint32_t nSunFogColor, uint32_t nMoonFogColor, OBJECT_ID oidArea, float fFadeTime);
     BOOL SendServerToPlayerUpdateFogAmount(uint8_t nSunFogAmount, uint8_t nMoonFogAmount, OBJECT_ID oidArea);
+    BOOL SendServerToPlayerUpdateAreaLightColor(uint32_t nType, uint32_t nColor, OBJECT_ID oidArea, float fFadeTime);
+    BOOL SendServerToPlayerUpdateAreaLightDirection(uint32_t nType, Vector vDirection, OBJECT_ID oidArea, float fFadeTime);
+    BOOL SendServerToPlayerArea_UpdateWind(CNWSPlayer * pPlayer, Vector vDirection, float fMagnitude, float fYaw, float fPitch);
     BOOL SendServerToPlayerSetCustomToken(uint32_t nPlayerID, int32_t nCustomTokenNumber, const CExoString & sTokenValue);
     BOOL SendServerToPlayerSetCustomTokenList(uint32_t nPlayerID);
+    BOOL SendServerToPlayerSetTlkOverride(uint32_t nPlayerID, int32_t nStrRef, const CExoString & sOverride);
+    BOOL SendServerToPlayerSetTlkOverrideList(uint32_t nPlayerID);
     BOOL SendServerToPlayerChatMultiLangMessage(uint8_t nChatMessageType, OBJECT_ID oidSpeaker, CExoLocString sSpeakerMessage, OBJECT_ID oidTokenTarget, uint8_t gender, uint32_t * pPlayerIdNoBubble, uint32_t nPlayerIdNoBubble, BOOL bPrivateChat, const CResRef & sSound, BOOL bPlayHelloSound, OBJECT_ID oidLastSpeaker);
     BOOL SendServerToPlayerChatMultiLang_Helper(uint32_t nPlayerID, uint8_t nChatMessageType, OBJECT_ID oidSpeaker, CExoLocString sSpeakerMessage, OBJECT_ID oidTokenTarget, uint8_t gender, BOOL bNoBubble, const CResRef & sSound, BOOL bPlayHelloSound, OBJECT_ID oidLastSpeaker);
     BOOL SendServerToPlayerChatMessage(uint8_t nChatMessageType, OBJECT_ID oidSpeaker, CExoString sSpeakerMessage, uint32_t nTellPlayerId = 0xffffffff, const CExoString & sTellName = "");
@@ -151,22 +164,24 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerSoundObject_Stop(CNWSPlayer * pPlayer, OBJECT_ID oidSound);
     BOOL SendServerToPlayerSoundObject_ChangeVolume(CNWSPlayer * pPlayer, OBJECT_ID oidSound, int32_t nVolume);
     BOOL SendServerToPlayerSoundObject_ChangePosition(CNWSPlayer * pPlayer, OBJECT_ID oidSound, Vector vPos);
-    BOOL SendServerToPlayerGameObjUpdate(CNWSPlayer * pPlayer);
-    BOOL SendServerToPlayerGameObjUpdate(CNWSPlayer * pPlayer, OBJECT_ID oidObjectToUpdate);
-    BOOL SendServerToPlayerGameObjUpdateVisEffect(CNWSPlayer * pPlayer, uint16_t nVisualEffectID, OBJECT_ID oidTarget, OBJECT_ID oidSource = 0x7f000000, uint8_t nSourceNode = 0, uint8_t nTargetNode = 0, Vector vTargetPosition = Vector(), float fDuration = 0.0f);
+    BOOL SendServerToPlayerSoundObject_Create(CNWSPlayer * pPlayer, CNWSSoundObject * pSoundObject);
+    BOOL SendServerToPlayerSoundObject_Destroy(CNWSPlayer * pPlayer, OBJECT_ID oidSound);
+    BOOL SendServerToPlayerGameObjUpdate(CNWSPlayer * pPlayer, OBJECT_ID oidObjectToUpdate, int nMessageLimit);
+    BOOL SendServerToPlayerGameObjUpdateVisEffect(CNWSPlayer * pPlayer, uint16_t nVisualEffectID, OBJECT_ID oidTarget, OBJECT_ID oidSource = 0x7f000000, uint8_t nSourceNode = 0, uint8_t nTargetNode = 0, Vector vTargetPosition = Vector(), float fDuration = 0.0f, ObjectVisualTransformData ovtd = ObjectVisualTransformData());
     BOOL SendServerToPlayerGameObjUpdateFloatyText(CNWSPlayer * pPlayer, uint32_t nStrRef, OBJECT_ID oidTarget);
     BOOL SendServerToPlayerQuickChatMessage(OBJECT_ID oidSpeaker, uint16_t nSoundSetSoundID);
     BOOL SendServerToPlayerStoreConfirmTransaction(CNWSPlayer * pPlayer, BOOL bTransactionSuccessful, OBJECT_ID oidItem, int32_t nStoreGold);
     BOOL SendServerToPlayerCombatRoundStarted(CNWSPlayer * pPlayer);
     BOOL SendServerToPlayerWhirlwindAttack(CNWSPlayer * pPlayer, CNWSCreature * pCreature);
     BOOL SendServerToPlayerWhirlwindAttackDamage(CNWSPlayer * pPlayer, CNWSCreature * pCreature);
-    BOOL SendServerToPlayerPlaceableUpdate_Useable(CNWSPlaceable * pPlaceable);
+    BOOL SendServerToPlayerObjectUpdate_Useable(CNWSObject * pObject);
     BOOL SendServerToPlayerGUICharacterSheet_NotPermitted(uint32_t nPlayerId, OBJECT_ID oidCharSheetFailure);
     BOOL SendServerToPlayerDestroyDeathGUI(uint32_t nPlayerId);
     BOOL SendServerToPlayerUpdateActiveItemPropertiesUses(CNWSPlayer * pPlayer, OBJECT_ID oidItem, uint8_t nUseableProperties, uint8_t nUseDiff, uint8_t * pUsesLeftPerProperty);
     BOOL SendServerToPlayerUpdateActiveItemProperties(CNWSPlayer * pPlayer, CNWSItem * pItem);
     BOOL SendServerToPlayerUpdateItemName(CNWSPlayer * pPlayer, CNWSItem * pItem);
     BOOL SendServerToPlayerUpdateItemHidden(CNWSPlayer * pPlayer, CNWSItem * pItem);
+    BOOL SendServerToPlayerUpdateItemTextBubbleOverride(CNWSPlayer * pPlayer, CNWSItem * pItem);
     BOOL HandlePlayerToServerPlayModuleCharacterList(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerPlayModuleCharacterList_Start(CNWSPlayer * pPlayer);
     BOOL HandlePlayerToServerPlayModuleCharacterList_Stop(CNWSPlayer * pPlayer);
@@ -235,6 +250,7 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerDialogReplies(uint32_t nPlayerID, CExoLocString * pRepliesStr, uint32_t * pRepliesIndex, uint32_t nReplies, uint32_t nInactiveReplies, OBJECT_ID oidTokenTarget, uint8_t gender, BOOL bEndOfDialog, uint32_t currentEntryIndex, BOOL bDisableCameraZoom);
     BOOL SendServerToPlayerDialogReplyChosen(uint32_t nPlayerID, uint32_t nReplyIndex, uint32_t currentEntryIndex, CExoLocString sReply, OBJECT_ID oidTokenTarget, uint8_t gender, BOOL bEndOfDialog);
     BOOL SendServerToPlayerDialogClose(uint32_t nPlayerID);
+    BOOL SendServerToPlayerDungeonMasterLoginState(CNWSPlayer * pPlayer, BOOL bIsDM, BOOL bIsDMManifested);
     BOOL SendServerToPlayerDungeonMasterCreatorLists(CNWSPlayer * pPlayer);
     BOOL SendServerToPlayerDungeonMasterAreaList(CNWSPlayer * pPlayer);
     BOOL SendServerToPlayerDungeonMasterAreaList(uint32_t nPlayerID);
@@ -294,7 +310,6 @@ struct CNWSMessage : CNWMessage
     void SendServerToServerAdminServerStatus(uint32_t nPlayerId);
     void SendServerToServerAdminServerSettings(uint32_t nPlayerId);
     void SendServerToServerAdminSaveStatus(uint32_t nPlayerId, uint8_t nStatus);
-    BOOL SendMessageToAllSysAdmins(CExoString sCommand);
     BOOL ParseGetBool(uint8_t * pMsgPortion, uint32_t msgPortionSize, BOOL & pBool);
     BOOL ParseGetString(uint8_t * pMsgPortion, uint32_t msgPortionSize, CExoString & pString, uint32_t nMaxStrLength);
     BOOL ParseToken(const char * token, uint8_t * * pMsgPortion, uint32_t & msgPortionSize, BOOL bDelimeterFollowing);
@@ -304,6 +319,7 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerDebugInfo_Area(CNWSPlayer * pPlayer, OBJECT_ID oidArea);
     BOOL SendServerToPlayerDebugInfo_Door(CNWSPlayer * pPlayer, OBJECT_ID oidDoor);
     BOOL SendServerToPlayerDebugInfo_Trigger(CNWSPlayer * pPlayer, OBJECT_ID oidTrigger);
+    BOOL SendServerToPlayerDebugInfo_String(CNWSPlayer * pPlayer, const CExoString & sString);
     BOOL SendServerToPlayerLevelUp_Confirmation(uint32_t nPlayerId, BOOL bValidated);
     BOOL SendServerToPlayerLevelUp_Begin(uint32_t nPlayerId, CNWSCreature * pCreature);
     BOOL SendServerToPlayerActivatePortal(uint32_t nPlayerId, CExoString sIPAddress, CExoString sPassword, CExoString sWaypointTag, BOOL bSeemless);
@@ -315,7 +331,7 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerGuiTimingEvent(CNWSPlayer * pPlayer, BOOL bStarting, uint8_t nGuiTimingEventID, uint32_t nDuration = 0);
     void UpdateLastUpdate_GuiEffectIcons(CNWSCreature * pCreature, CExoArrayList<CEffectIconObject *> * pLastUpdateEffectArray, BOOL bSendNonPlayerBarIcons = false);
     BOOL ComputeLastUpdate_GuiEffectIcons(CNWSCreature * pCreature, CExoArrayList<CEffectIconObject *> * pLastUpdateEffectArray, BOOL bSendNonPlayerBarIcons = false);
-    void WriteGuiEffectIconsUpdate(CNWSCreature * pCreature, CExoArrayList<CEffectIconObject *> * pLastUpdateEffectArray, BOOL bSendNonPlayerBarIcons = false);
+    void WriteGuiEffectIconsUpdate(CNWSCreature * pCreature, CExoArrayList<CEffectIconObject *> * pLastUpdateEffectArray, BOOL bSendNonPlayerBarIcons, CNWSPlayer* pPlayer);
     BOOL SendServerToPlayerPVP_Attitude_Change(uint32_t nTargetPlayerId, uint32_t nSourcePlayerId, BOOL bNewAttitude);
     BOOL SendServerToPlayerCutscene_Status(CNWSPlayer * pPlayer, BOOL bIsActive, BOOL bEnableLeftMouseButton);
     BOOL SendServerToPlayerCutscene_FadeToBlack(CNWSPlayer * pPlayer, float fFadeSpeed);
@@ -326,21 +342,35 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerPolymorph(CNWSPlayer * pPlayer, OBJECT_ID oidMorpher, BOOL bMorphing, BOOL bAllowCancel);
     BOOL HandlePlayerToServerCutscene(CNWSPlayer * pPlayer, uint8_t nMinor);
     BOOL HandlePlayerToServerPlayerList(CNWSPlayer * pPlayer, uint8_t nMinor);
-    void AddDoorAppearanceToMessage(CNWSDoor * pDoor);
-    void AddPlaceableAppearanceToMessage(CNWSPlaceable * pPlaceable);
+    BOOL SendServerToPlayerGuiEvent_Disable(CNWSPlayer *pPlayer, int32_t nGuiElement, BOOL bDisable, OBJECT_ID oidTarget = NWNXLib::API::Constants::OBJECT_INVALID);
+    BOOL HandlePlayerToServerDevice(CNWSPlayer * pPlayer, uint8_t nMinor);
+    //BOOL SendServerToPlayerNui_Create(CNWSPlayer * pPlayer, Nui::JSON::WindowToken cToken, Nui::JSON::WindowIdentifier sId, const json & jData);
+    BOOL SendServerToPlayerNui_CreateClient(CNWSPlayer * pPlayer, Nui::JSON::WindowToken cToken, Nui::JSON::WindowIdentifier sId, const CResRef & cResRef);
+    BOOL SendServerToPlayerNui_Destroy(CNWSPlayer * pPlayer, int32_t nToken);
+    BOOL SendServerToPlayerNui_Binds(CNWSPlayer * pPlayer, const std::vector<Nui::JSON::BindUpdate> & updates);
+    //BOOL SendServerToPlayerNui_SetLayout(CNWSPlayer * pPlayer, Nui::JSON::WindowToken cToken, const CExoString & elementId, const json & jData);
+    BOOL HandlePlayerToServerNuiEvent(CNWSPlayer * pPlayer, uint8_t nMinor);
+    BOOL SendServerToPlayerSetShaderUniform_Float(CNWSPlayer * player, const uint8_t idx, const float v);
+    BOOL SendServerToPlayerSetShaderUniform_Int(CNWSPlayer * player, const uint8_t idx, const int v);
+    BOOL SendServerToPlayerSetShaderUniform_Vec(CNWSPlayer * player, const uint8_t idx, const Vector4 & v);
+    BOOL SendServerToPlayerSetSpellTargetingData(CNWSPlayer * player, const int spell, const int shape, const float sizeX, const float sizeY, const int flags);
+    BOOL SendServerToPlayerSetEnterTargetingModeData(CNWSPlayer * player, const int shape, const float sizeX, const float sizeY, const int flags, const float range, const int spellId, const int featId);
+    BOOL SendServerToPlayerMessage(uint32_t nPlayerId, uint8_t nMajor, uint8_t nMinor, uint8_t * pBuffer, uint32_t nBufferSize);
+    void AddDoorAppearanceToMessage(CNWSPlayer * pPlayer, CNWSDoor * pDoor);
+    void AddPlaceableAppearanceToMessage(CNWSPlayer * pPlayer, CNWSPlaceable * pPlaceable);
     void AddAreaOfEffectObjectToMessage(CNWSAreaOfEffectObject * pSpellImpact);
     void AddTriggerGeometryToMessage(CNWSTrigger * pTrigger);
-    void AddActiveItemPropertiesToMessage(CNWSItem * pItem, CNWSCreature * pCreature);
+    void AddActiveItemPropertiesToMessage(CNWSPlayer * pPlayer, CNWSItem * pItem, CNWSCreature * pCreature);
     BOOL ComputeQuickbarItemUseCountUpdateRequired(CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject);
     void WriteGameObjUpdate_UpdateQuickbarItemUseCount(CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject);
-    void AddItemAppearanceToMessage(CNWSItem * pItem);
+    void AddItemAppearanceToMessage(CNWSPlayer * pPlayer, CNWSItem * pItem);
     uint32_t ComputeAppearanceUpdateRequired(CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject);
     BOOL ComputeInventoryUpdateRequired(CNWSPlayer * pPlayer, uint32_t nInventorySlot, CNWSPlayerInventoryGUI * pInventoryGUI);
     BOOL ComputeRepositoryUpdateRequired(CNWSPlayer * pPlayer, CExoLinkedListPosition pPosition, CExoLinkedListPosition pOldPosition);
-    void AssignVisualEffectLists(CExoArrayList<CLoopingVisualEffect *> * pTargetList, CExoArrayList<CLoopingVisualEffect *> * pSourceList);
-    BOOL CompareVisualEffectLists(CExoArrayList<CLoopingVisualEffect *> * pSourceList1, CExoArrayList<CLoopingVisualEffect *> * pSourceList2);
+    void AssignVisualEffectLists(CExoArrayList<CLoopingVisualEffect> * pTargetList, CExoArrayList<CLoopingVisualEffect> * pSourceList);
+    BOOL CompareVisualEffectLists(const CExoArrayList<CLoopingVisualEffect> * pSourceList1, const CExoArrayList<CLoopingVisualEffect> * pSourceList2);
     void AssignCreatureLists(CExoArrayList<OBJECT_ID> * pSourceList, CExoArrayList<OBJECT_ID> * pTargetList);
-    BOOL CompareCreatureLists(CExoArrayList<OBJECT_ID> * pSourceList, CExoArrayList<OBJECT_ID> * pTargetList);
+    BOOL CompareCreatureLists(const CExoArrayList<OBJECT_ID> * pSourceList, const CExoArrayList<OBJECT_ID> * pTargetList);
     void UpdateLastUpdateVisibilityList(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
     BOOL ComputeVisibilityLists(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
     uint32_t ComputeUpdateRequired(CNWSPlayer * pPlayer, CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject, BOOL bPlayerObject);
@@ -354,15 +384,13 @@ struct CNWSMessage : CNWMessage
     BOOL SendServerToPlayerChat_StrRef(uint32_t nPlayerID, OBJECT_ID oidSpeaker, uint8_t nChatMessageType, uint32_t nStrRef);
     BOOL SendServerToPlayerChat_Whisper(uint32_t nPlayerID, OBJECT_ID oidSpeaker, CExoString sSpeakerMessage);
     BOOL SendServerToPlayerChat_DM_Whisper(uint32_t nPlayerID, OBJECT_ID oidSpeaker, CExoString sSpeakerMessage);
-    BOOL SendServerToPlayerMessage(uint32_t nPlayerId, uint8_t nMajor, uint8_t nMinor, uint8_t * pBuffer, uint32_t nBufferSize);
     void UpdateLastUpdateInventory(CNWSPlayer * pPlayer, uint32_t nInventorySlot, CNWSPlayerInventoryGUI * pInventoryGUI);
     void UpdateLastUpdateObject(CNWSPlayer * pPlayer, CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject, uint32_t nObjectUpdatesRequired);
     void UpdateLastUpdateObjectAppearance(CNWSObject * pGameObject, CLastUpdateObject * pLastUpdateObject, uint32_t nObjectAppearanceUpdatesRequired);
-    void UpdateLastUpdateRepository(CNWSPlayer * pPlayer, CExoLinkedListPosition pPosition, CExoLinkedListPosition pOldPosition);
-    void WriteGameObjUpdate_UpdateAppearance(CNWSObject * pAreaObject, CLastUpdateObject * pLastUpdateObject, uint32_t nUpdatesRequired);
-    void WriteGameObjUpdate_WriteInventorySlotAdd(CNWSCreature * pAreaCreature, CNWSItem * pItem, uint32_t nSlot);
+    void WriteGameObjUpdate_UpdateAppearance(CNWSObject * pAreaObject, CLastUpdateObject * pLastUpdateObject, uint32_t nUpdatesRequired, CNWSPlayer * pPlayer);
+    void WriteGameObjUpdate_WriteInventorySlotAdd(CNWSPlayer * pPlayer, CNWSCreature * pAreaCreature, CNWSItem * pItem, uint32_t nSlot);
     void WriteGameObjUpdate_WriteInventorySlotDelete(CNWSCreature * pAreaCreature, uint32_t nSlot);
-    void WriteGameObjUpdate_WriteInventorySlotUpdate(OBJECT_ID oidItem, uint32_t nSlot);
+    void WriteGameObjUpdate_WriteInventorySlotUpdate(CNWSPlayer * pPlayer, OBJECT_ID oidItem, uint32_t nSlot);
     void WriteRepositoryUpdate(CNWSPlayer * pPlayer, CNWSObject * pPlayerGameObject, CItemRepository * pItemRepository, CNWSPlayerLUOInventory * pLastUpdateInventory, uint8_t nLastUpdateList, char cGuiElementByte, uint8_t nCurrentPanel);
     void WriteStoreInventoryUpdate(CNWSPlayer * pPlayer, CNWSStore * pStore);
     BOOL ComputeLastUpdate_ActionQueue(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
@@ -371,7 +399,6 @@ struct CNWSMessage : CNWMessage
     uint32_t ComputeNumAutoMapUpdatesRequired(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject, uint32_t * pnUnexploredTiles = 0);
     void UpdateLastUpdateAutoMap(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
     BOOL ComputeLastUpdate_GuiFeats(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
-    void UpdateLastUpdate_GuiFeats(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
     uint32_t ComputeLastUpdate_GuiSkills(CNWSCreature * pCreature);
     uint32_t ComputeLastUpdate_PlayerState(CNWSCreature * pCreature);
     uint16_t ComputeLastUpdate_AssociateState(CNWSCreature * pCreature);
@@ -384,6 +411,8 @@ struct CNWSMessage : CNWMessage
     void ComputeLastUpdate_StoreUpdateSpellLikeAbility(CNWSCreature * pCreature, CNWSPlayerLastUpdateObject * pLastUpdateObject);
     BOOL HasValidString(CExoLocString & sLocString, uint8_t nGender = 0);
     BOOL SendServerToPlayerInventory_LearnScroll(uint32_t nPlayerID, OBJECT_ID nObjectID, uint8_t nMinor);
+    BOOL HandlePlayerToServerGuiEvent(CNWSPlayer * pPlayer, uint8_t nMinor);
+    BOOL HandlePlayerToServerCameraMessage(CNWSPlayer * pPlayer, uint8_t nMinor);
 
 
 #ifdef NWN_CLASS_EXTENSION_CNWSMessage

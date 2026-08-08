@@ -17,9 +17,8 @@ typedef int BOOL;
 
 struct CNetLayerSessionInfo
 {
-    uint32_t m_nConnectionId;
+    CNetConnectionId m_nConnectionId;
     CExoString m_sSessionName;
-    uint32_t m_nProtocol;
     uint32_t m_nPort;
     uint32_t m_nPingPacketSent[4];
     uint32_t m_nPingPacketReceived[4];
@@ -33,7 +32,7 @@ struct CNetLayerSessionInfo
     BOOL m_bRecievedBNXR;
     uint32_t m_nLastUpdate;
     CExoString m_sVisibleAddress;
-    NWSyncAdvertisement m_nwsyncData;
+    NWSync::Advertisement m_nwsyncData;
 
     CNetLayerSessionInfo();
     ~CNetLayerSessionInfo();

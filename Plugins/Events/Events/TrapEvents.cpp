@@ -1,124 +1,163 @@
-#include "Events/TrapEvents.hpp"
+#include "Events.hpp"
 #include "API/CNWSCreature.hpp"
 #include "API/CNWSTrigger.hpp"
 #include "API/CNWSObjectActionNode.hpp"
-#include "API/Functions.hpp"
-#include "Plugin.hpp"
-#include "Events.hpp"
-#include "Utils.hpp"
 
 namespace Events {
 
 using namespace NWNXLib;
 using namespace NWNXLib::API;
 
-static NWNXLib::Hooking::FunctionHook* m_AIActionDisarmTrapHook = nullptr;
-static NWNXLib::Hooking::FunctionHook* m_AIActionExamineTrapHook = nullptr;
-static NWNXLib::Hooking::FunctionHook* m_AIActionFlagTrapHook = nullptr;
-static NWNXLib::Hooking::FunctionHook* m_AIActionRecoverTrapHook = nullptr;
-static NWNXLib::Hooking::FunctionHook* m_AIActionSetTrapHook = nullptr;
-static NWNXLib::Hooking::FunctionHook* m_OnEnterTrapHook = nullptr;
+static NWNXLib::Hooks::Hook s_AIActionDisarmTrapHook;
+static NWNXLib::Hooks::Hook s_AIActionExamineTrapHook;
+static NWNXLib::Hooks::Hook s_AIActionFlagTrapHook;
+static NWNXLib::Hooks::Hook s_AIActionRecoverTrapHook;
+static NWNXLib::Hooks::Hook s_AIActionSetTrapHook;
+static NWNXLib::Hooks::Hook s_OnEnterTrapHook;
 
-TrapEvents::TrapEvents(Services::HooksProxy* hooker)
+static uint32_t HandleTrapHook(const std::string&, NWNXLib::Hooks::FunctionHook*, CNWSCreature*, CNWSObjectActionNode*);
+static uint32_t AIActionDisarmTrapHook(CNWSCreature*, CNWSObjectActionNode*);
+static uint32_t AIActionExamineTrapHook(CNWSCreature*, CNWSObjectActionNode*);
+static uint32_t AIActionFlagTrapHook(CNWSCreature*, CNWSObjectActionNode*);
+static uint32_t AIActionRecoverTrapHook(CNWSCreature*, CNWSObjectActionNode*);
+static uint32_t AIActionSetTrapHook(CNWSCreature*, CNWSObjectActionNode*);
+static void OnEnterTrapHook(CNWSTrigger*, int32_t);
+
+void TrapEvents() __attribute__((constructor));
+void TrapEvents()
 {
-    Events::InitOnFirstSubscribe("NWNX_ON_TRAP_.*", [hooker]() {
-        hooker->RequestExclusiveHook<API::Functions::_ZN12CNWSCreature18AIActionDisarmTrapEP20CNWSObjectActionNode, uint32_t, CNWSCreature*, CNWSObjectActionNode*>(&AIActionDisarmTrapHook);
-        m_AIActionDisarmTrapHook = hooker->FindHookByAddress(API::Functions::_ZN12CNWSCreature18AIActionDisarmTrapEP20CNWSObjectActionNode);
-        hooker->RequestExclusiveHook<API::Functions::_ZN12CNWSCreature19AIActionExamineTrapEP20CNWSObjectActionNode, uint32_t, CNWSCreature*, CNWSObjectActionNode*>(&AIActionExamineTrapHook);
-        m_AIActionExamineTrapHook = hooker->FindHookByAddress(API::Functions::_ZN12CNWSCreature19AIActionExamineTrapEP20CNWSObjectActionNode);
-        hooker->RequestExclusiveHook<API::Functions::_ZN12CNWSCreature16AIActionFlagTrapEP20CNWSObjectActionNode, uint32_t, CNWSCreature*, CNWSObjectActionNode*>(&AIActionFlagTrapHook);
-        m_AIActionFlagTrapHook = hooker->FindHookByAddress(API::Functions::_ZN12CNWSCreature16AIActionFlagTrapEP20CNWSObjectActionNode);
-        hooker->RequestExclusiveHook<API::Functions::_ZN12CNWSCreature19AIActionRecoverTrapEP20CNWSObjectActionNode, uint32_t, CNWSCreature*, CNWSObjectActionNode*>(&AIActionRecoverTrapHook);
-        m_AIActionRecoverTrapHook = hooker->FindHookByAddress(API::Functions::_ZN12CNWSCreature19AIActionRecoverTrapEP20CNWSObjectActionNode);
-        hooker->RequestExclusiveHook<API::Functions::_ZN12CNWSCreature15AIActionSetTrapEP20CNWSObjectActionNode, uint32_t, CNWSCreature*, CNWSObjectActionNode*>(&AIActionSetTrapHook);
-        m_AIActionSetTrapHook = hooker->FindHookByAddress(API::Functions::_ZN12CNWSCreature15AIActionSetTrapEP20CNWSObjectActionNode);
-        hooker->RequestExclusiveHook<API::Functions::_ZN11CNWSTrigger11OnEnterTrapEi, void, CNWSTrigger*, int32_t>(&OnEnterTrapHook);
-        m_OnEnterTrapHook = hooker->FindHookByAddress(API::Functions::_ZN11CNWSTrigger11OnEnterTrapEi);
+    InitOnFirstSubscribe("NWNX_ON_TRAP_.*", []() {
+        s_AIActionDisarmTrapHook = Hooks::HookFunction(&CNWSCreature::AIActionDisarmTrap,
+                                                &AIActionDisarmTrapHook, Hooks::Order::Early);
+        s_AIActionExamineTrapHook = Hooks::HookFunction(&CNWSCreature::AIActionExamineTrap,
+                                                 &AIActionExamineTrapHook, Hooks::Order::Early);
+        s_AIActionFlagTrapHook = Hooks::HookFunction(&CNWSCreature::AIActionFlagTrap,
+                                              &AIActionFlagTrapHook, Hooks::Order::Early);
+        s_AIActionRecoverTrapHook = Hooks::HookFunction(&CNWSCreature::AIActionRecoverTrap,
+                                                 &AIActionRecoverTrapHook, Hooks::Order::Early);
+        s_AIActionSetTrapHook = Hooks::HookFunction(&CNWSCreature::AIActionSetTrap,
+                                             &AIActionSetTrapHook, Hooks::Order::Early);
+        s_OnEnterTrapHook = Hooks::HookFunction(&CNWSTrigger::OnEnterTrap,
+                                         &OnEnterTrapHook, Hooks::Order::Early);
     });
 }
 
-uint32_t TrapEvents::HandleTrapHook(
-        const std::string& event,
-        NWNXLib::Hooking::FunctionHook* originalTrapHook,
-        CNWSCreature *pCreature,
-        CNWSObjectActionNode *pNode)
+uint32_t HandleTrapHook(const std::string& event, Hooks::FunctionHook* originalTrapHook, CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-
     uint32_t retVal;
     std::string sAux;
 
-    Events::PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[0])));
-
-    if (Events::SignalEvent("NWNX_ON_TRAP_" + event + "_BEFORE", pCreature->m_idSelf, &sAux))
-    {
-        retVal = originalTrapHook->CallOriginal<uint32_t>(pCreature, pNode);
-    }
+    BOOL bInRange;
+    if (event != "SET")
+        bInRange = pCreature->GetIsInUseRange((ObjectID)pNode->m_pParameter[0]);
     else
     {
-        retVal = atoi(sAux.c_str());
-        if(retVal == 0)
-            retVal = 3; //CNWSObject::ACTION_FAILED;
+        if (auto *pGO = Utils::GetGameObject((uintptr_t)(pNode->m_pParameter[1])))
+            bInRange = pCreature->GetIsInUseRange(pGO->m_idSelf, 0.5f, false);
+        else
+        {
+            Vector vTargetPosition = Vector(*(float*)&pNode->m_pParameter[2], *(float*)&pNode->m_pParameter[3], *(float*)&pNode->m_pParameter[4]);
+            bInRange = Vector::MagnitudeSquared(pCreature->m_vPosition - (vTargetPosition - Vector::Normalize(pCreature->m_vPosition - vTargetPosition))) < 2.25f;
+        }
     }
 
-    Events::PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[0])));
-    Events::PushEventData("ACTION_RESULT", std::to_string(retVal));
+    if (!bInRange || !pCreature->m_bTrapAnimationPlayed) // BEFORE
+    {
+        PushEventData("NEEDS_TO_MOVE", std::to_string((uint32_t)!bInRange));
+        PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[0])));
+        if (event == "SET")
+        {
+            PushEventData("TARGET_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[1])));
+            PushEventData("TARGET_POSITION_X", std::to_string(*(float*)&pNode->m_pParameter[2]));
+            PushEventData("TARGET_POSITION_Y", std::to_string(*(float*)&pNode->m_pParameter[3]));
+            PushEventData("TARGET_POSITION_Z", std::to_string(*(float*)&pNode->m_pParameter[4]));
+        }
 
-    Events::SignalEvent("NWNX_ON_TRAP_" + event + "_AFTER", pCreature->m_idSelf);
+        if (SignalEvent("NWNX_ON_TRAP_" + event + "_BEFORE", pCreature->m_idSelf, &sAux))
+        {
+            retVal = originalTrapHook->CallOriginal<uint32_t>(pCreature, pNode);
+        }
+        else
+        {
+            retVal = atoi(sAux.c_str());
+            if(retVal == 0)
+                retVal = 3; //CNWSObject::ACTION_FAILED;
+
+            PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[0])));
+            if (event == "SET")
+            {
+                PushEventData("TARGET_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[1])));
+                PushEventData("TARGET_POSITION_X", std::to_string(*(float*)&pNode->m_pParameter[2]));
+                PushEventData("TARGET_POSITION_Y", std::to_string(*(float*)&pNode->m_pParameter[3]));
+                PushEventData("TARGET_POSITION_Z", std::to_string(*(float*)&pNode->m_pParameter[4]));
+            }
+            PushEventData("ACTION_RESULT", std::to_string(retVal != 3));
+
+            SignalEvent("NWNX_ON_TRAP_" + event + "_AFTER", pCreature->m_idSelf);
+        }
+    }
+    else // AFTER
+    {
+        retVal = originalTrapHook->CallOriginal<uint32_t>(pCreature, pNode);
+
+        PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[0])));
+        if (event == "SET")
+        {
+            PushEventData("TARGET_OBJECT_ID", Utils::ObjectIDToString((uintptr_t)(pNode->m_pParameter[1])));
+            PushEventData("TARGET_POSITION_X", std::to_string(*(float*)&pNode->m_pParameter[2]));
+            PushEventData("TARGET_POSITION_Y", std::to_string(*(float*)&pNode->m_pParameter[3]));
+            PushEventData("TARGET_POSITION_Z", std::to_string(*(float*)&pNode->m_pParameter[4]));
+        }
+        PushEventData("ACTION_RESULT", std::to_string(retVal != 3));
+
+        SignalEvent("NWNX_ON_TRAP_" + event + "_AFTER", pCreature->m_idSelf);
+    }
+
     return retVal;
 }
 
-uint32_t TrapEvents::AIActionDisarmTrapHook(
-    CNWSCreature *pCreature,
-    CNWSObjectActionNode *pNode)
+uint32_t AIActionDisarmTrapHook(CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-    return HandleTrapHook("DISARM", m_AIActionDisarmTrapHook, pCreature, pNode);
+    return HandleTrapHook("DISARM", s_AIActionDisarmTrapHook.get(), pCreature, pNode);
 }
 
-uint32_t TrapEvents::AIActionExamineTrapHook(
-        CNWSCreature *pCreature,
-        CNWSObjectActionNode *pNode)
+uint32_t AIActionExamineTrapHook(CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-    return HandleTrapHook("EXAMINE", m_AIActionExamineTrapHook, pCreature, pNode);
+    return HandleTrapHook("EXAMINE", s_AIActionExamineTrapHook.get(), pCreature, pNode);
 }
 
-uint32_t TrapEvents::AIActionFlagTrapHook(
-        CNWSCreature *pCreature,
-        CNWSObjectActionNode *pNode)
+uint32_t AIActionFlagTrapHook(CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-    return HandleTrapHook("FLAG", m_AIActionFlagTrapHook, pCreature, pNode);
+    return HandleTrapHook("FLAG", s_AIActionFlagTrapHook.get(), pCreature, pNode);
 }
 
-uint32_t TrapEvents::AIActionRecoverTrapHook(
-        CNWSCreature *pCreature,
-        CNWSObjectActionNode *pNode)
+uint32_t AIActionRecoverTrapHook(CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-    return HandleTrapHook("RECOVER", m_AIActionRecoverTrapHook, pCreature, pNode);
+    return HandleTrapHook("RECOVER", s_AIActionRecoverTrapHook.get(), pCreature, pNode);
 }
 
-uint32_t TrapEvents::AIActionSetTrapHook(
-        CNWSCreature *pCreature,
-        CNWSObjectActionNode *pNode)
+uint32_t AIActionSetTrapHook(CNWSCreature *pCreature, CNWSObjectActionNode *pNode)
 {
-    return HandleTrapHook("SET", m_AIActionSetTrapHook, pCreature, pNode);
+    return HandleTrapHook("SET", s_AIActionSetTrapHook.get(), pCreature, pNode);
 }
 
-void TrapEvents::OnEnterTrapHook(CNWSTrigger *pTrigger, int32_t bForceSet)
+void OnEnterTrapHook(CNWSTrigger *pTrigger, int32_t bForceSet)
 {
-    Events::PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString(pTrigger->m_idSelf));
-    Events::PushEventData("TRAP_FORCE_SET", std::to_string(bForceSet));
+    PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString(pTrigger->m_idSelf));
+    PushEventData("TRAP_FORCE_SET", std::to_string(bForceSet));
 
     std::string forceSet;
-    if (Events::SignalEvent("NWNX_ON_TRAP_ENTER_BEFORE", pTrigger->m_oidLastEntered, &forceSet))
+    if (SignalEvent("NWNX_ON_TRAP_ENTER_BEFORE", pTrigger->m_oidLastEntered, &forceSet))
     {
-        m_OnEnterTrapHook->CallOriginal<void>(pTrigger, bForceSet);
+        s_OnEnterTrapHook->CallOriginal<void>(pTrigger, bForceSet);
     }
     else if (!forceSet.empty())
     {
-        m_OnEnterTrapHook->CallOriginal<void>(pTrigger, forceSet == "1");
+        s_OnEnterTrapHook->CallOriginal<void>(pTrigger, forceSet == "1");
     }
 
-    Events::PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString(pTrigger->m_idSelf));
-    Events::SignalEvent("NWNX_ON_TRAP_ENTER_AFTER", pTrigger->m_oidLastEntered);
+    PushEventData("TRAP_OBJECT_ID", Utils::ObjectIDToString(pTrigger->m_idSelf));
+    SignalEvent("NWNX_ON_TRAP_ENTER_AFTER", pTrigger->m_oidLastEntered);
 }
 
 }

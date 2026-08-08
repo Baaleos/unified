@@ -2,7 +2,6 @@
 /// @brief Provides various utility functions that don't have a better home
 /// @{
 /// @file nwnx_util.nss
-#include "nwnx"
 
 const string NWNX_Util = "NWNX_Util"; ///< @private
 
@@ -28,6 +27,20 @@ const int NWNX_UTIL_RESREF_TYPE_STORE     = 2051;
 const int NWNX_UTIL_RESREF_TYPE_WAYPOINT  = 2058;
 ///@}
 
+/// @brief A world time struct
+struct NWNX_Util_WorldTime
+{
+    int nCalendarDay; ///< The calendar day
+    int nTimeOfDay; ///< The time of day
+};
+
+/// @brief A high resolution timestamp
+struct NWNX_Util_HighResTimestamp
+{
+    int seconds; ///< Seconds since epoch
+    int microseconds; ///< Microseconds
+};
+
 /// @brief Gets the name of the currently executing script.
 /// @note If depth is > 0, it will return the name of the script that called this one via ExecuteScript().
 /// @param depth to seek the executing script.
@@ -44,6 +57,14 @@ string NWNX_Util_GetAsciiTableString();
 /// @return The hashed string as an integer.
 int NWNX_Util_Hash(string str);
 
+/// @brief Gets the last modified timestamp (mtime) of the module file in seconds.
+/// @return The mtime of the module file.
+int NWNX_Util_GetModuleMtime();
+
+/// @brief Gets the module short file name.
+/// @return The module file as a string.
+string NWNX_Util_GetModuleFile();
+
 /// @brief Gets the value of customTokenNumber.
 /// @param customTokenNumber The token number to query.
 /// @return The string representation of the token value.
@@ -54,7 +75,6 @@ string NWNX_Util_GetCustomToken(int customTokenNumber);
 /// @return The converted itemproperty.
 itemproperty NWNX_Util_EffectToItemProperty(effect e);
 
-///
 /// @brief Convert an itemproperty type to an effect type.
 /// @param ip The itemproperty to convert to an effect.
 /// @return The converted effect.
@@ -64,12 +84,6 @@ effect NWNX_Util_ItemPropertyToEffect(itemproperty ip);
 /// @param str The string to strip of color.
 /// @return The new string without any color codes.
 string NWNX_Util_StripColors(string str);
-
-/// @brief Determines if the supplied resref exists.
-/// @param resref The resref to check.
-/// @param type The @ref resref_types "Resref Type".
-/// @return TRUE/FALSE
-int NWNX_Util_IsValidResRef(string resref, int type = NWNX_UTIL_RESREF_TYPE_CREATURE);
 
 /// @brief Retrieves an environment variable.
 /// @param sVarname The environment variable to query.
@@ -90,12 +104,6 @@ void NWNX_Util_SetMinutesPerHour(int minutes);
 /// @return The url encoded string.
 string NWNX_Util_EncodeStringForURL(string str);
 
-/// @anchor twoda_row_count
-/// @brief Gets the row count for a 2da.
-/// @param str The 2da to check (do not include the .2da).
-/// @return The amount of rows in the 2da.
-int NWNX_Util_Get2DARowCount(string str);
-
 /// @brief Get the first resref of nType.
 /// @param nType A @ref resref_types "Resref Type".
 /// @param sRegexFilter Lets you filter out resrefs using a regexfilter.
@@ -109,11 +117,6 @@ string NWNX_Util_GetFirstResRef(int nType, string sRegexFilter = "", int bModule
 /// @return The next resref found or "" if none is found.
 string NWNX_Util_GetNextResRef();
 
-/// @brief Get the ticks per second of the server.
-/// @remark Useful to dynamically detect lag and adjust behavior accordingly.
-/// @return The ticks per second.
-int NWNX_Util_GetServerTicksPerSecond();
-
 /// @brief Get the last created object.
 /// @param nObjectType Does not take the NWScript OBJECT_TYPE_* constants.
 /// Use NWNX_Consts_TranslateNWScriptObjectType() to get their NWNX equivalent.
@@ -121,36 +124,43 @@ int NWNX_Util_GetServerTicksPerSecond();
 /// @return The last created object. On error, this returns OBJECT_INVALID.
 object NWNX_Util_GetLastCreatedObject(int nObjectType, int nNthLast = 1);
 
-/// @brief Compiles and adds a script to the UserDirectory/nwnx folder.
+/// @brief Compiles and adds a script to the UserDirectory/nwnx folder, or to the location of sAlias.
 /// @note Will override existing scripts that are in the module.
 /// @param sFileName The script filename without extension, 16 or less characters.
 /// @param sScriptData The script data to compile
 /// @param bWrapIntoMain Set to TRUE to wrap sScriptData into void main(){}.
+/// @param sAlias The alias of the resource directory to add the ncs file to. Default: UserDirectory/nwnx
 /// @return "" on success, or the compilation error.
-string NWNX_Util_AddScript(string sFileName, string sScriptData, int bWrapIntoMain = FALSE);
+string NWNX_Util_AddScript(string sFileName, string sScriptData, int bWrapIntoMain = FALSE, string sAlias = "NWNX");
 
-/// @brief Gets the contents of a .nss script file as a string.
-/// @param sScriptName The name of the script to get the contents of.
-/// @param nMaxLength The max length of the return string, -1 to get everything
-/// @return The script file contents or "" on error.
-string NWNX_Util_GetNSSContents(string sScriptName, int nMaxLength = -1);
-
-/// @brief Adds a nss file to the UserDirectory/nwnx folder.
+/// @brief Adds a nss file to the UserDirectory/nwnx folder, or to the location of sAlias.
 /// @note Will override existing nss files that are in the module
 /// @param sFileName The script filename without extension, 16 or less characters.
 /// @param sContents The contents of the nss file
+/// @param sAlias The alias of the resource directory to add the nss file to. Default: UserDirectory/nwnx
 /// @return TRUE on success.
-int NWNX_Util_AddNSSFile(string sFileName, string sContents);
+int NWNX_Util_AddNSSFile(string sFileName, string sContents, string sAlias = "NWNX");
 
-/// @brief Remove sFileName of nType from the UserDirectory/nwnx folder.
+/// @brief Remove sFileName of nType from the UserDirectory/nwnx folder, or from the location of sAlias.
 /// @param sFileName The filename without extension, 16 or less characters.
 /// @param nType The @ref resref_types "Resref Type".
+/// @param sAlias The alias of the resource directory to remove the file from. Default: UserDirectory/nwnx
 /// @return TRUE on success.
-int NWNX_Util_RemoveNWNXResourceFile(string sFileName, int nType);
+int NWNX_Util_RemoveNWNXResourceFile(string sFileName, int nType, string sAlias = "NWNX");
 
-/// @brief Set the NWScript instruction limit
+/// @brief Set the NWScript instruction limit.
 /// @param nInstructionLimit The new limit or -1 to reset to default.
 void NWNX_Util_SetInstructionLimit(int nInstructionLimit);
+
+/// @brief Get the NWScript instruction limit.
+int NWNX_Util_GetInstructionLimit();
+
+/// @brief Set the number of NWScript instructions currently executed.
+/// @param nInstructions The number of instructions, must be >= 0.
+void NWNX_Util_SetInstructionsExecuted(int nInstructions);
+
+/// @brief Get the number of NWScript instructions currently executed.
+int NWNX_Util_GetInstructionsExecuted();
 
 /// @brief Register a server console command that will execute a script chunk.
 /// @note Example usage: NWNX_Util_RegisterServerConsoleCommand("test", "PrintString(\"Test Command -> Args: $args\");");
@@ -163,221 +173,444 @@ int NWNX_Util_RegisterServerConsoleCommand(string sCommand, string sScriptChunk)
 /// @param sCommand The name of the command.
 void NWNX_Util_UnregisterServerConsoleCommand(string sCommand);
 
+/// @brief Gets the server's current working user folder.
+/// @return The absolute path of the server's home directory (-userDirectory)
+string NWNX_Util_GetUserDirectory();
+
+/// @brief Get the return value of the last run script with a StartingConditional
+/// @return Return value of the last run script.
+int NWNX_Util_GetScriptReturnValue();
+
+/// @brief Create a door.
+/// @param sResRef The ResRef of the door.
+/// @param locLocation The location to create the door at.
+/// @param sNewTag An optional new tag for the door.
+/// @param nAppearanceType An optional index into doortypes.2da for appearance.
+/// @return The door, or OBJECT_INVALID on failure.
+object NWNX_Util_CreateDoor(string sResRef, location locLocation, string sNewTag = "", int nAppearanceType = -1);
+
+/// @brief Set the object that will be returned by GetItemActivator.
+/// @param oObject An object.
+void NWNX_Util_SetItemActivator(object oObject);
+
+/// @brief Get the world time as calendar day and time of day.
+/// @note This function is useful for calculating effect expiry times.
+/// @param fAdjustment An adjustment in seconds, 0.0f will return the current world time,
+/// positive or negative values will return a world time in the future or past.
+/// @return A NWNX_Util_WorldTime struct with the calendar day and time of day.
+struct NWNX_Util_WorldTime NWNX_Util_GetWorldTime(float fAdjustment = 0.0f);
+
+/// @brief Set a server-side resource override.
+/// @param nResType A @ref resref_types "Resref Type".
+/// @param sOldName The old resource name, 16 characters or less.
+/// @param sNewName The new resource name or "" to clear a previous override, 16 characters or less.
+void NWNX_Util_SetResourceOverride(int nResType, string sOldName, string sNewName);
+
+/// @brief Get a server-side resource override.
+/// @param nResType A @ref resref_types "Resref Type".
+/// @param sName The name of the resource, 16 characters or less.
+/// @return The resource override, or "" if one is not set.
+string NWNX_Util_GetResourceOverride(int nResType, string sName);
+
+/// @brief Get if a script param is set.
+/// @param sParamName The script parameter name to check.
+/// @return TRUE if the script param is set, FALSE if not or on error.
+int NWNX_Util_GetScriptParamIsSet(string sParamName);
+
+/// @brief Set the module dawn hour.
+/// @param nDawnHour The new dawn hour
+void NWNX_Util_SetDawnHour(int nDawnHour);
+
+/// @brief Get the module dawn hour.
+/// @return The dawn hour
+int NWNX_Util_GetDawnHour();
+
+/// @brief Set the module dusk hour.
+/// @param nDuskHour The new dusk hour
+void NWNX_Util_SetDuskHour(int nDuskHour);
+
+/// @brief Get the module dusk hour.
+/// @return The dusk hour
+int NWNX_Util_GetDuskHour();
+
+/// @return Returns the number of microseconds since midnight on January 1, 1970.
+struct NWNX_Util_HighResTimestamp NWNX_Util_GetHighResTimeStamp();
+
+/// @return Return name of a terminal, "" if not a TTY
+string NWNX_Util_GetTTY();
+
+/// @brief Set the currently running script event.
+/// @param nEventID The ID of the event.
+void NWNX_Util_SetCurrentlyRunningEvent(int nEventID);
+
+/// @brief Calculate the levenshtein distance of two strings
+/// @param sString The string to compare with.
+/// @param sCompareTo The string to compare sString to.
+/// @return The number of characters different between the compared strings.
+int NWNX_Util_GetStringLevenshteinDistance(string sString, string sCompareTo);
+
+/// @brief Sends a full object update of oObjectToUpdate to all clients
+/// @param oObjectToUpdate The object to update
+/// @param oPlayer The player for which the objects needs to update, OBJECT_INVALID for all players
+void NWNX_Util_UpdateClientObject(object oObjectToUpdate, object oPlayer = OBJECT_INVALID);
+
+/// @brief Clean a resource directory, deleting all files of nResType.
+/// @param sAlias A resource directory alias, NWNX or one defined in the custom resource directory file.
+/// @param nResType The type of file to delete or 0xFFFF for all types.
+/// @return TRUE if successful, FALSE on error.
+int NWNX_Util_CleanResourceDirectory(string sAlias, int nResType = 0xFFFF);
+
+/// @brief Return the filename of the tlk file.
+/// @return The name
+string NWNX_Util_GetModuleTlkFile();
+
+/// @brief Update a resource directory by having ResMan reindex it.
+/// @param sAlias A resource directory alias, eg: TEMP
+/// @return TRUE if successful, FALSE on error.
+int NWNX_Util_UpdateResourceDirectory(string sAlias);
+
+/// @brief Set the starting location.
+/// @param sResRef ResRef of area.
+/// @param locLocation The location to move the starting point to.
+/// @param vDirection  Direction of starting point.
+/// @return TRUE if successful, FALSE on error.
+int NWNX_Util_SetStartingLocation(string sResRef, location locLocation, vector vDirection);
+
+/// @brief Print a string with no log decorations.
+/// @param sString String to print
+void NWNX_Util_RawPrint(string sString);
+
 /// @}
 
 string NWNX_Util_GetCurrentScriptName(int depth = 0)
 {
-    string sFunc = "GetCurrentScriptName";
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, depth);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushInt(depth);
+    NWNXCall(NWNX_Util, "GetCurrentScriptName");
+    return NWNXPopString();
 }
 
 string NWNX_Util_GetAsciiTableString()
 {
-    string sFunc = "GetAsciiTableString";
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXCall(NWNX_Util, "GetAsciiTableString");
+    return NWNXPopString();
 }
 
 int NWNX_Util_Hash(string str)
 {
-    string sFunc = "Hash";
-    NWNX_PushArgumentString(NWNX_Util, sFunc, str);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXPushString(str);
+    NWNXCall(NWNX_Util, "Hash");
+    return NWNXPopInt();
+}
+
+int NWNX_Util_GetModuleMtime()
+{
+    NWNXCall(NWNX_Util, "GetModuleMtime");
+    return NWNXPopInt();
+}
+
+string NWNX_Util_GetModuleFile()
+{
+    NWNXCall(NWNX_Util, "GetModuleFile");
+    return NWNXPopString();
 }
 
 string NWNX_Util_GetCustomToken(int customTokenNumber)
 {
-    string sFunc = "GetCustomToken";
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, customTokenNumber);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushInt(customTokenNumber);
+    NWNXCall(NWNX_Util, "GetCustomToken");
+    return NWNXPopString();
 }
 
 itemproperty NWNX_Util_EffectToItemProperty(effect e)
 {
-    string sFunc = "EffectTypeCast";
-    NWNX_PushArgumentEffect(NWNX_Util, sFunc, e);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueItemProperty(NWNX_Util, sFunc);
+    NWNXPushEffect(e);
+    NWNXCall(NWNX_Util, "EffectTypeCast");
+    return NWNXPopItemProperty();
 }
 
 effect NWNX_Util_ItemPropertyToEffect(itemproperty ip)
 {
-    string sFunc = "EffectTypeCast";
-    NWNX_PushArgumentItemProperty(NWNX_Util, sFunc, ip);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueEffect(NWNX_Util, sFunc);
+    NWNXPushItemProperty(ip);
+    NWNXCall(NWNX_Util, "EffectTypeCast");
+    return NWNXPopEffect();
 }
 
 string NWNX_Util_StripColors(string str)
 {
-    string sFunc = "StripColors";
-    NWNX_PushArgumentString(NWNX_Util, sFunc, str);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
-}
-
-int NWNX_Util_IsValidResRef(string resref, int type = NWNX_UTIL_RESREF_TYPE_CREATURE)
-{
-    string sFunc = "IsValidResRef";
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, type);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, resref);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXPushString(str);
+    NWNXCall(NWNX_Util, "StripColors");
+    return NWNXPopString();
 }
 
 string NWNX_Util_GetEnvironmentVariable(string sVarname)
 {
-    string sFunc = "GetEnvironmentVariable";
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sVarname);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushString(sVarname);
+    NWNXCall(NWNX_Util, "GetEnvironmentVariable");
+    return NWNXPopString();
 }
 
 int NWNX_Util_GetMinutesPerHour()
 {
-    string sFunc = "GetMinutesPerHour";
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXCall(NWNX_Util, "GetMinutesPerHour");
+    return NWNXPopInt();
 }
 
 void NWNX_Util_SetMinutesPerHour(int minutes)
 {
-    string sFunc = "SetMinutesPerHour";
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, minutes);
-    NWNX_CallFunction(NWNX_Util, sFunc);
+    NWNXPushInt(minutes);
+    NWNXCall(NWNX_Util, "SetMinutesPerHour");
 }
 
 string NWNX_Util_EncodeStringForURL(string sURL)
 {
-    string sFunc = "EncodeStringForURL";
-
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sURL);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
-}
-
-int NWNX_Util_Get2DARowCount(string str)
-{
-    string sFunc = "Get2DARowCount";
-    NWNX_PushArgumentString(NWNX_Util, sFunc, str);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXPushString(sURL);
+    NWNXCall(NWNX_Util, "EncodeStringForURL");
+    return NWNXPopString();
 }
 
 string NWNX_Util_GetFirstResRef(int nType, string sRegexFilter = "", int bModuleResourcesOnly = TRUE)
 {
-    string sFunc = "GetFirstResRef";
-
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, bModuleResourcesOnly);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sRegexFilter);
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nType);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushInt(bModuleResourcesOnly);
+    NWNXPushString(sRegexFilter);
+    NWNXPushInt(nType);
+    NWNXCall(NWNX_Util, "GetFirstResRef");
+    return NWNXPopString();
 }
 
 string NWNX_Util_GetNextResRef()
 {
-    string sFunc = "GetNextResRef";
-
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
-}
-
-int NWNX_Util_GetServerTicksPerSecond()
-{
-    string sFunc = "GetServerTicksPerSecond";
-
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXCall(NWNX_Util, "GetNextResRef");
+    return NWNXPopString();
 }
 
 object NWNX_Util_GetLastCreatedObject(int nObjectType, int nNthLast = 1)
 {
-    string sFunc = "GetLastCreatedObject";
-
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nNthLast);
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nObjectType);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueObject(NWNX_Util, sFunc);
+    NWNXPushInt(nNthLast);
+    NWNXPushInt(nObjectType);
+    NWNXCall(NWNX_Util, "GetLastCreatedObject");
+    return NWNXPopObject();
 }
 
-string NWNX_Util_AddScript(string sFileName, string sScriptData, int bWrapIntoMain = FALSE)
+string NWNX_Util_AddScript(string sFileName, string sScriptData, int bWrapIntoMain = FALSE, string sAlias = "NWNX")
 {
-    string sFunc = "AddScript";
-
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, bWrapIntoMain);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sScriptData);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sFileName);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushString(sAlias);
+    NWNXPushInt(bWrapIntoMain);
+    NWNXPushString(sScriptData);
+    NWNXPushString(sFileName);
+    NWNXCall(NWNX_Util, "AddScript");
+    return NWNXPopString();
 }
 
-string NWNX_Util_GetNSSContents(string sScriptName, int nMaxLength = -1)
+int NWNX_Util_AddNSSFile(string sFileName, string sContents, string sAlias = "NWNX")
 {
-    string sFunc = "GetNSSContents";
-
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nMaxLength);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sScriptName);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Util, sFunc);
+    NWNXPushString(sAlias);
+    NWNXPushString(sContents);
+    NWNXPushString(sFileName);
+    NWNXCall(NWNX_Util, "AddNSSFile");
+    return NWNXPopInt();
 }
 
-int NWNX_Util_AddNSSFile(string sFileName, string sContents)
+int NWNX_Util_RemoveNWNXResourceFile(string sFileName, int nType, string sAlias = "NWNX")
 {
-    string sFunc = "AddNSSFile";
-
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sContents);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sFileName);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
-}
-
-int NWNX_Util_RemoveNWNXResourceFile(string sFileName, int nType)
-{
-    string sFunc = "RemoveNWNXResourceFile";
-
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nType);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sFileName);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXPushString(sAlias);
+    NWNXPushInt(nType);
+    NWNXPushString(sFileName);
+    NWNXCall(NWNX_Util, "RemoveNWNXResourceFile");
+    return NWNXPopInt();
 }
 
 void NWNX_Util_SetInstructionLimit(int nInstructionLimit)
 {
-    string sFunc = "SetInstructionLimit";
+    NWNXPushInt(nInstructionLimit);
+    NWNXCall(NWNX_Util, "SetInstructionLimit");
+}
 
-    NWNX_PushArgumentInt(NWNX_Util, sFunc, nInstructionLimit);
-    NWNX_CallFunction(NWNX_Util, sFunc);
+int NWNX_Util_GetInstructionLimit()
+{
+    NWNXCall(NWNX_Util, "GetInstructionLimit");
+    return NWNXPopInt();
+}
+
+void NWNX_Util_SetInstructionsExecuted(int nInstructions)
+{
+    NWNXPushInt(nInstructions);
+    NWNXCall(NWNX_Util, "SetInstructionsExecuted");
+}
+
+int NWNX_Util_GetInstructionsExecuted()
+{
+    NWNXCall(NWNX_Util, "GetInstructionsExecuted");
+    return NWNXPopInt();
 }
 
 int NWNX_Util_RegisterServerConsoleCommand(string sCommand, string sScriptChunk)
 {
-    string sFunc = "RegisterServerConsoleCommand";
-
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sScriptChunk);
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sCommand);
-    NWNX_CallFunction(NWNX_Util, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Util, sFunc);
+    NWNXPushString(sScriptChunk);
+    NWNXPushString(sCommand);
+    NWNXCall(NWNX_Util, "RegisterServerConsoleCommand");
+    return NWNXPopInt();
 }
 
 void NWNX_Util_UnregisterServerConsoleCommand(string sCommand)
 {
-    string sFunc = "UnregisterServerConsoleCommand";
+    NWNXPushString(sCommand);
+    NWNXCall(NWNX_Util, "UnregisterServerConsoleCommand");
+}
 
-    NWNX_PushArgumentString(NWNX_Util, sFunc, sCommand);
-    NWNX_CallFunction(NWNX_Util, sFunc);
+string NWNX_Util_GetUserDirectory()
+{
+    NWNXCall(NWNX_Util, "GetUserDirectory");
+    return NWNXPopString();
+}
+
+int NWNX_Util_GetScriptReturnValue()
+{
+    NWNXCall(NWNX_Util, "GetScriptReturnValue");
+    return NWNXPopInt();
+}
+
+object NWNX_Util_CreateDoor(string sResRef, location locLocation, string sNewTag = "", int nAppearanceType = -1)
+{
+    NWNXPushInt(nAppearanceType);
+    NWNXPushString(sNewTag);
+    NWNXPushLocation(locLocation);
+    NWNXPushString(sResRef);
+    NWNXCall(NWNX_Util, "CreateDoor");
+    return NWNXPopObject();
+}
+
+void NWNX_Util_SetItemActivator(object oObject)
+{
+    NWNXPushObject(oObject);
+    NWNXCall(NWNX_Util, "SetItemActivator");
+}
+
+struct NWNX_Util_WorldTime NWNX_Util_GetWorldTime(float fAdjustment = 0.0f)
+{
+    NWNXPushFloat(fAdjustment);
+    NWNXCall(NWNX_Util, "GetWorldTime");
+    struct NWNX_Util_WorldTime strWorldTime;
+    strWorldTime.nTimeOfDay = NWNXPopInt();
+    strWorldTime.nCalendarDay = NWNXPopInt();
+    return strWorldTime;
+}
+
+void NWNX_Util_SetResourceOverride(int nResType, string sOldName, string sNewName)
+{
+    NWNXPushString(sNewName);
+    NWNXPushString(sOldName);
+    NWNXPushInt(nResType);
+    NWNXCall(NWNX_Util, "SetResourceOverride");
+}
+
+string NWNX_Util_GetResourceOverride(int nResType, string sName)
+{
+    NWNXPushString(sName);
+    NWNXPushInt(nResType);
+    NWNXCall(NWNX_Util, "GetResourceOverride");
+    return NWNXPopString();
+}
+
+int NWNX_Util_GetScriptParamIsSet(string sParamName)
+{
+    NWNXPushString(sParamName);
+    NWNXCall(NWNX_Util, "GetScriptParamIsSet");
+    return NWNXPopInt();
+}
+
+void NWNX_Util_SetDawnHour(int nDawnHour)
+{
+    NWNXPushInt(nDawnHour);
+    NWNXCall(NWNX_Util, "SetDawnHour");
+}
+
+int NWNX_Util_GetDawnHour()
+{
+    NWNXCall(NWNX_Util, "GetDawnHour");
+    return NWNXPopInt();
+}
+
+void NWNX_Util_SetDuskHour(int nDuskHour)
+{
+    NWNXPushInt(nDuskHour);
+    NWNXCall(NWNX_Util, "SetDuskHour");
+}
+
+int NWNX_Util_GetDuskHour()
+{
+    NWNXCall(NWNX_Util, "GetDuskHour");
+    return NWNXPopInt();
+}
+
+struct NWNX_Util_HighResTimestamp NWNX_Util_GetHighResTimeStamp()
+{
+    struct NWNX_Util_HighResTimestamp t;
+    NWNXCall(NWNX_Util, "GetHighResTimeStamp");
+    t.microseconds = NWNXPopInt();
+    t.seconds = NWNXPopInt();
+    return t;
+}
+
+string NWNX_Util_GetTTY()
+{
+    NWNXCall(NWNX_Util, "GetTTY");
+    return NWNXPopString();
+}
+
+void NWNX_Util_SetCurrentlyRunningEvent(int nEventID)
+{
+    NWNXPushInt(nEventID);
+    NWNXCall(NWNX_Util, "SetCurrentlyRunningEvent");
+}
+
+int NWNX_Util_GetStringLevenshteinDistance(string sString, string sCompareTo)
+{
+    NWNXPushString(sCompareTo);
+    NWNXPushString(sString);
+    NWNXCall(NWNX_Util, "GetStringLevenshteinDistance");
+    return NWNXPopInt();
+}
+
+void NWNX_Util_UpdateClientObject(object oObjectToUpdate, object oPlayer = OBJECT_INVALID)
+{
+    NWNXPushObject(oPlayer);
+    NWNXPushObject(oObjectToUpdate);
+    NWNXCall(NWNX_Util, "UpdateClientObject");
+}
+
+int NWNX_Util_CleanResourceDirectory(string sAlias, int nResType = 0xFFFF)
+{
+    NWNXPushInt(nResType);
+    NWNXPushString(sAlias);
+    NWNXCall(NWNX_Util, "CleanResourceDirectory");
+    return NWNXPopInt();
+}
+
+string NWNX_Util_GetModuleTlkFile()
+{
+    string sFunc = "GetModuleTlkFile";
+    NWNXCall(NWNX_Util, sFunc);
+    return NWNXPopString();
+}
+
+int NWNX_Util_UpdateResourceDirectory(string sAlias)
+{
+    NWNXPushString(sAlias);
+    NWNXCall(NWNX_Util, "UpdateResourceDirectory");
+    return NWNXPopInt();
+}
+
+int NWNX_Util_SetStartingLocation(string sResRef, location locLocation, vector vDirection)
+{
+    NWNXPushVector(vDirection);
+    NWNXPushLocation(locLocation);
+    NWNXPushString(sResRef);
+    NWNXCall(NWNX_Util, "SetStartingLocation");
+    return NWNXPopInt();
+}
+
+void NWNX_Util_RawPrint(string sString)
+{
+    NWNXPushString(sString);
+    NWNXCall(NWNX_Util, "RawPrint");
 }

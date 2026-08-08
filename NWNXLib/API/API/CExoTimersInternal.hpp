@@ -19,17 +19,20 @@ struct CExoTimersInternal
     uint64_t m_nQPFrequency;
     uint64_t m_nQPCMicroSecFrequency;
     double m_fQPCMicroSecFrequency;
-    volatile uint64_t m_nHighResTimerValue;
-    volatile uint32_t m_nLowResTimerValue;
+    volatile uint64_t m_nUsecResTimerValue;
+    volatile uint32_t m_nMsecResimerValue;
+    volatile time_t m_nUnixTimestampValue;
     volatile BOOL m_bShutdown;
     void * m_pTimerThread;
 
     CExoTimersInternal();
     ~CExoTimersInternal();
-    uint32_t GetLowResolutionTimerReal();
-    uint64_t GetHighResolutionTimerReal();
-    uint32_t GetLowResolutionTimer();
-    uint64_t GetHighResolutionTimer();
+    uint32_t GetMillisecondTimerReal();
+    uint64_t GetMicrosecondTimerReal();
+    time_t GetUnixTimestampReal();
+    uint32_t GetMillisecondTimer();
+    uint64_t GetMicrosecondTimer();
+    time_t GetUnixTimestamp();
 
 
 #ifdef NWN_CLASS_EXTENSION_CExoTimersInternal

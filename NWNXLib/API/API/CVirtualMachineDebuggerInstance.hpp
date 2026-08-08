@@ -2,8 +2,6 @@
 #include "nwn_api.hpp"
 
 #include "CExoString.hpp"
-#include "CScriptSourceFile.hpp"
-#include "CVirtualMachineDebugLoader.hpp"
 
 
 #ifdef NWN_API_PROLOGUE
@@ -18,6 +16,8 @@ typedef int BOOL;
 
 struct CVirtualMachineDebuggerInstance
 {
+    RESTYPE m_nResTypeSource;
+    RESTYPE m_nResTypeDebug;
     CVirtualMachine * m_pVMachine;
     int32_t * m_pnInstructionPointer;
     char * m_pDebugInputMessageBuffer;
@@ -58,23 +58,23 @@ struct CVirtualMachineDebuggerInstance
     CExoString * m_pDebugWatchViewTypeNames;
     CExoString * m_pDebugWatchViewLineNumbers;
     CExoString * m_pDebugWatchViewVariableValues;
-    CVirtualMachineDebugLoader m_pDebugLoader;
     CExoString m_sCurrentSourceFileName;
-    CScriptSourceFile m_pCurrentSourceScriptFile;
+    CExoString m_sCurrentSourceScriptSource;
     int32_t m_nActiveCallStackEntry;
 
-    CVirtualMachineDebuggerInstance();
+    CVirtualMachineDebuggerInstance(RESTYPE nScriptResType, RESTYPE nDebugResType);
     ~CVirtualMachineDebuggerInstance();
     int32_t SpawnDebugger();
     int32_t DebuggerMainLoop();
     void ShutDownDebugger();
     int32_t GenerateLineNumberFromInstructionPointer(int32_t nIP, BOOL bExactCheck = false);
+    static BOOL VerifyDebugInfo(DataViewRef pDebugInfo);
     BOOL ReadIntegerFromInput(int32_t * pnSize, int32_t * pnInteger);
     BOOL ReadStringFromInput(int32_t * pnSize, CExoString * psString);
     BOOL ParseAndExecuteMessage(int32_t * nSize);
-    char * LoadDebugInfoLine(uint8_t * pResourceData, uint32_t nResourceSize, uint32_t nOffsetStart, uint32_t * pnOffsetEnd);
-    BOOL LoadDebugInfo(CVirtualMachineDebugLoader * pDebugLoader);
-    char * LoadScriptLine(uint8_t * pResourceData, uint32_t nResourceSize, uint32_t nOffsetStart, uint32_t * pnOffsetEnd, BOOL bIncludeReturns);
+    char * LoadDebugInfoLine(const uint8_t * pResourceData, uint32_t nResourceSize, uint32_t nOffsetStart, uint32_t * pnOffsetEnd);
+    BOOL LoadDebugInfo(DataViewRef pDebugData);
+    char * LoadScriptLine(const uint8_t * pResourceData, uint32_t nResourceSize, uint32_t nOffsetStart, uint32_t * pnOffsetEnd, BOOL bIncludeReturns);
     int32_t GenerateFunctionIDFromInstructionPointer(int32_t nIP);
     int32_t GenerateTypeSize(CExoString * pNDBString);
     int32_t GenerateStackSizeAtInstructionPointer(int32_t nFunctionID, int32_t nIP);
@@ -84,7 +84,6 @@ struct CVirtualMachineDebuggerInstance
     CExoString GenerateTypeValueFromStackLocation(int32_t nStackLocation, CExoString * pTypeString);
     CExoString GenerateCallStackParameterView(int32_t nStackLocation, CExoString * sVariableName, CExoString * sTypeName);
     CExoString GenerateCallStackView(int32_t nFunctionID, int32_t nInstructionPointer, int32_t nStackPointer);
-    void GenerateWatchWindowView(int32_t nFunctionID, int32_t nInstructionPointer, int32_t nStackPointer, int32_t nStackSize);
     void ToggleWatchWindowExpansion(CExoString sLineNumber);
     BOOL DebuggerSingleStep(BOOL bStepOver = false);
     int32_t FindEmptyWatchViewEntry();

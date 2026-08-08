@@ -39,9 +39,8 @@ struct CNWSItem : CNWItem, CNWSObject
     uint32_t m_nUnidentifiedCost;
     int32_t m_nAdditionalCost;
     BOOL m_bRecalculateCost;
-    uint8_t m_nModelPart[3];
-    uint8_t m_nArmorModelPart[19];
-    uint8_t m_nUnalteredArmorModelPart[19];
+    uint16_t m_nModelPart[3];
+    uint16_t m_nArmorModelPart[19];
     OBJECT_ID m_oidPossessor;
     CItemRepository * m_pItemRepository;
     uint8_t m_nRepositoryPositionX;
@@ -74,23 +73,23 @@ struct CNWSItem : CNWItem, CNWSObject
     void EventHandler(uint32_t nEventId, OBJECT_ID nCallerObjectId, void * pScript, uint32_t nCalendarDay, uint32_t nTimeOfDay);
     void InitRepository(OBJECT_ID nObjectID);
     BOOL LoadFromTemplate(CResRef cResRef, CExoString * pTag = nullptr);
-    BOOL LoadItem(CResGFF * pRes, CResStruct * cItemStruct, BOOL bIsInsideAContainer = false);
+    BOOL LoadItem(CResGFF * pRes, CResStruct * cItemStruct, BOOL bLoadOID, BOOL bIsInsideAContainer = false);
     void ComputeWeight();
     BOOL SaveItem(CResGFF * pRes, CResStruct * pStruct, BOOL bExportingChar = false);
     BOOL AcquireItem(CNWSItem * * pItem, OBJECT_ID oidPossessor = 0x7f000000, uint8_t x = - 1, uint8_t y = - 1, BOOL bDisplayFeedback = true);
     BOOL SaveContainerItems(CResGFF * pRes, CResStruct * pStruct, BOOL bExportingChar);
     BOOL SaveItemProperties(CResGFF * pRes, CResStruct * pStruct);
-    BOOL LoadDataFromGff(CResGFF * pRes, CResStruct * pCreatureStruct, BOOL bIsInsideAContainer = false);
+    BOOL LoadDataFromGff(CResGFF * pRes, CResStruct * pCreatureStruct, BOOL bLoadOID, BOOL bIsInsideAContainer = false);
     void RemoveFromArea();
     void SetPossessor(OBJECT_ID oidPossessor, BOOL bRunScripts, BOOL bDisplayFeedback, int32_t nStackSize = 0);
     void OpenInventory(OBJECT_ID oidOpener);
     void CloseInventory(OBJECT_ID oidCloser, BOOL bUpdatePlayer = true);
     BOOL CopyItem(CNWSItem * pSourceItem, BOOL bCopyVars = false);
-    void ReadContainerItemsFromGff(CResGFF * pRes, CResStruct * pGffItemStruct);
+    void ReadContainerItemsFromGff(CResGFF * pRes, CResStruct * pGffItemStruct, BOOL bLoadOID);
     uint32_t GetCost(BOOL bIncludeStackSize = true, BOOL bIdentifiedCost = false, BOOL bUseILRStackSize = false, BOOL bIgnorePlotFlag = false);
     void SetIdentified(BOOL bIdentified);
     int32_t ComputeArmorClass();
-    uint16_t GetDamageFlags();
+    uint32_t GetDamageFlags();
     BOOL MergeItem(CNWSItem * pItemToMerge);
     CNWSItem * SplitItem(int32_t nNumberToSplitOff);
     void SetNumCharges(int32_t nNumCharges, BOOL bUpdateActiveProperties = true);
@@ -117,6 +116,8 @@ struct CNWSItem : CNWItem, CNWSObject
     void CalculateBaseCosts();
     float CalculatePassiveCost(CNWItemProperty * pItemProperty);
 
+    inline CExoLocString &GetFirstName() override { return m_sName; }
+    inline CExoLocString &GetDescription(bool nIdentified) { return nIdentified ? m_sIdentifiedDescription : m_sUnidentifiedDescription; }
 
 #ifdef NWN_CLASS_EXTENSION_CNWSItem
     NWN_CLASS_EXTENSION_CNWSItem

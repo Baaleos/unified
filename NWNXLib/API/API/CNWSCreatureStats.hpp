@@ -18,7 +18,6 @@ struct CFeatUseListEntry;
 struct CNWClass;
 struct CNWCreatureStatsUpdate;
 struct CNWLevelStats;
-struct CNWLevelStats;
 struct CNWSCreature;
 struct CNWSCreatureAppearanceInfo;
 struct CNWSItem;
@@ -49,9 +48,8 @@ struct CNWSCreatureStats
     int32_t m_nAge;
     uint8_t m_nGender;
     uint32_t m_nExperience;
+    BOOL m_bIsDMCharacterFile;
     BOOL m_bIsPC;
-    BOOL m_bIsDM;
-    BOOL m_bIsDMFile;
     BOOL m_bIsAIDisabledPossess;
     BOOL m_bIsAIDisabledOverride;
     BOOL m_bDMManifested;
@@ -60,9 +58,9 @@ struct CNWSCreatureStats
     int32_t m_nOriginalFactionId;
     int32_t m_nPreDominationFactionId;
     float m_fChallengeRating;
-    uint8_t m_nStartingPackage;
+    uint32_t m_nStartingPackage;
     uint8_t m_nNumMultiClasses;
-    CNWSCreatureStats_ClassInfo m_ClassInfo[3];
+    CNWSCreatureStats_ClassInfo m_ClassInfo[8];
     uint16_t m_nRace;
     CExoString m_sSubRace;
     uint8_t m_nStrengthBase;
@@ -90,6 +88,7 @@ struct CNWSCreatureStats
     char m_nACNaturalNeg;
     char m_nACDodgeMod;
     char m_nACDodgeNeg;
+    char m_nACPolymorph;
     uint8_t m_nBaseAttackBonus;
     uint8_t m_nOverrideBaseAttackBonus;
     char m_nEnemyAttackBonus;
@@ -146,8 +145,8 @@ struct CNWSCreatureStats
     uint8_t m_nTattoo2Color;
     uint16_t m_nAppearanceType;
     uint8_t m_nPhenoType;
-    uint8_t m_nHeadVariation;
-    uint8_t m_pPartVariation[19];
+    uint16_t m_nHeadVariation;
+    uint16_t m_pPartVariation[19];
     uint32_t m_nTailVariation;
     uint32_t m_nWingVariation;
     int32_t m_nMovementRate;
@@ -167,7 +166,7 @@ struct CNWSCreatureStats
     ~CNWSCreatureStats();
     void UpdateLastStatsObject(uint64_t nUpdatesRequired, CNWCreatureStatsUpdate * updateObject);
     CNWLevelStats * GetLevelStats(uint8_t nLevel);
-    STRREF ReadStatsFromGff(CResGFF * pRes, CResStruct * pGffStructWithCreatureStats, CNWSCreatureAppearanceInfo * pAppInfo, BOOL bIsSaveGame = true, BOOL bIsPlayerCharacter = false, BOOL bCopyObject = false);
+    STRREF ReadStatsFromGff(CResGFF * pRes, CResStruct * pGffStructWithCreatureStats, CNWSCreatureAppearanceInfo * pAppInfo, BOOL bIsSaveGame = true, BOOL bIsPlayerCharacter = false, BOOL bCopyObject = false, BOOL bLoadOID = true);
     void ReadSpellsFromGff(CResGFF * pRes, CResStruct * pGffStructWithCreatureStats, BOOL bDefaultUnsavedSpellsAsReadied = false);
     void SaveStats(CResGFF * pRes, CResStruct * pStruct);
     void SaveClassInfo(CResGFF * pRes, CResStruct * pStruct);
@@ -175,7 +174,7 @@ struct CNWSCreatureStats
     BOOL CanLevelUp();
     void LevelUp(CNWLevelStats * pLevelUpStats, uint8_t nDomain1, uint8_t nDomain2, uint8_t nSchool, BOOL bAddStatsToList);
     void LevelDown(CNWLevelStats * pLevelUpStats);
-    BOOL LevelUpAutomatic(uint8_t nClass, BOOL bReadyAllSpells, uint8_t nPackage);
+    BOOL LevelUpAutomatic(uint8_t nClass, BOOL bReadyAllSpells, uint32_t nPackage);
     BOOL CanChooseFeat(uint16_t nFeatID, uint8_t nNumberNormalFeats, uint8_t nNumberBonusFeats, CExoArrayList<uint16_t> * pChosenFeats);
     BOOL FeatRequirementsMet(uint16_t nFeatID, CExoArrayList<uint16_t> * pChosenFeats);
     void SetNormalBonusFlags(uint16_t nFeatID, BOOL & bNormalListFeat, BOOL & bBonusListFeat);
@@ -184,6 +183,8 @@ struct CNWSCreatureStats
     BOOL GetIsClassAvailable(uint8_t nClass);
     BOOL GetMeetsPrestigeClassRequirements(CNWClass * pClass);
     uint8_t GetHitDie(uint8_t nMultiClass, uint8_t nDefaultClass);
+    BOOL GetIsDM();
+    BOOL GetIsPlayerDM();
     CExoString GetFullName();
     CExoString * GetTag();
     uint8_t GetLevel(BOOL bUseNegativeLevels = false);
@@ -194,7 +195,7 @@ struct CNWSCreatureStats
     void SetExperience(uint32_t nValue, BOOL bDoLevel = true);
     void AddExperience(uint32_t nValue);
     CExoString GetClassString(uint8_t nMultiClass);
-    uint8_t GetClassLevel(uint8_t nMultiClass, BOOL bUseNegativeLevel = false);
+    uint8_t GetClassLevel(uint8_t nMultiClass, BOOL bUseNegativeLevel = false, BOOL bIncludeCasterMultiplier = false);
     uint8_t GetClassNegativeLevels(uint8_t nMultiClass);
     uint8_t GetClass(uint8_t nMultiClass);
     CNWSCreatureStats_ClassInfo * GetClassInfo(uint8_t nMultiClass);
@@ -215,7 +216,9 @@ struct CNWSCreatureStats
     char GetBaseWillSavingThrow();
     char GetReflexSavingThrow(BOOL bExcludeEffectBonus = false);
     char GetBaseReflexSavingThrow();
+    char GetAbilityMod(uint8_t nAbility);
     char GetPrimaryMod(uint8_t nMultiClass);
+    char GetSpellcastingMod(uint8_t nMultiClass);
     uint8_t GetSTRStat();
     char GetTotalSTRBonus();
     uint8_t GetDEXStat();
@@ -254,6 +257,7 @@ struct CNWSCreatureStats
     uint16_t GetHighestLevelOfFeat(uint16_t nFeat);
     BOOL FeatRequirementsMetAfterLevelUp(uint16_t nFeatID, CNWLevelStats * pLevelUpStats, uint8_t nSchool);
     uint8_t GetFeatSourceClass(uint16_t nFeat);
+    static void GetStatBonusesFromFeats(CExoArrayList<uint16_t> *m_pFeats, int32_t *pMods, BOOL bSubtractBonuses = false);
     void ComputeFeatBonuses(CExoArrayList<uint16_t> * m_pFeats, BOOL bSubtractBonuses = false);
     void RemoveFeat(uint16_t nFeat);
     void ClearFeats();
@@ -354,7 +358,6 @@ struct CNWSCreatureStats
     void ClearMemorizedSpellSlot(uint8_t nMultiClass, uint8_t nSpellLevel, uint8_t nSpellSlot);
     void AddKnownSpell(uint8_t nMultiClass, uint32_t nSpellID);
     void RemoveKnownSpell(uint8_t nMultiClass, uint32_t nSpellID);
-    void MemorizeAllNPCSpells();
     uint8_t GetSpellsOfLevelReady(uint8_t nMultiClass, uint8_t nSpellLevel);
     void ReadySpellLevel(uint8_t nSpellLevel);
     BOOL UnReadySpell(uint32_t nSpellID, uint8_t nMultiClass, uint8_t nDomainLevel, uint8_t nMetaType);
@@ -366,6 +369,11 @@ struct CNWSCreatureStats
     void ResetSpellLikeAbilities();
     BOOL GetIsInSpellLikeAbilityList(uint32_t nSpellId);
     uint8_t GetSpellLikeAbilityCasterLevel(uint32_t nSpellId);
+    int32_t GetSpellLikeAbilityCount();
+    uint32_t GetSpellLikeAbilitySlotSpellId(uint32_t nSlot);
+    uint8_t GetSpellLikeAbilitySlotCasterLevel(uint32_t nSlot);
+    BOOL GetSpellLikeAbilitySlotReady(uint32_t nSlot);
+    void SetSpellLikeAbilitySlotReady(uint32_t nSlot, BOOL bReady);
     float GetStatById(int32_t nId);
     void SetStatById(int32_t nId, float nStat);
     BOOL GetIsWeaponOfChoice(uint32_t nBaseItemType);
@@ -383,4 +391,3 @@ struct CNWSCreatureStats
 #ifdef NWN_API_EPILOGUE
 NWN_API_EPILOGUE(CNWSCreatureStats)
 #endif
-

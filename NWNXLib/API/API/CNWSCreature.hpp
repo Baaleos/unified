@@ -9,6 +9,7 @@
 #include "CNWSObject.hpp"
 #include "CNWSPVPEntry.hpp"
 #include "CNWSPersonalReputation.hpp"
+#include "CNWSCreatureStats.hpp"
 #include "CResRef.hpp"
 #include "Vector.hpp"
 
@@ -19,7 +20,6 @@ NWN_API_PROLOGUE(CNWSCreature)
 
 struct CEffectIconObject;
 struct CGameEffect;
-struct CGameEffect;
 struct CItemRepository;
 struct CNWCCMessageData;
 struct CNWItemProperty;
@@ -27,7 +27,6 @@ struct CNWSArea;
 struct CNWSBarter;
 struct CNWSCombatAttackData;
 struct CNWSCombatRound;
-struct CNWSCreRestorePolymorphData;
 struct CNWSCreatureStats;
 struct CNWSFaction;
 struct CNWSForcedAction;
@@ -37,7 +36,6 @@ struct CNWSJournal;
 struct CNWSObjectActionNode;
 struct CNWSPlayer;
 struct CNWSQuickbarButton;
-struct CNWVisibilityNode;
 struct CNWVisibilityNode;
 struct CPathfindInformation;
 struct CResGFF;
@@ -144,6 +142,7 @@ struct CNWSCreature : CNWSObject
     float m_fCutsceneCameraMoveFactor;
     BOOL m_bWasPlotCreature;
     BOOL m_bCutsceneGhost;
+    uint8_t m_nPerceptionRange;
     OBJECT_ID m_oidLastPerception;
     BOOL m_bLastPerceptionHeard;
     BOOL m_bLastPerceptionSeen;
@@ -158,7 +157,7 @@ struct CNWSCreature : CNWSObject
     uint8_t m_nLastMoveSilentlyRoll;
     uint8_t m_nLastSpotRoll;
     uint8_t m_nLastListenRoll;
-    CExoArrayList<CNWVisibilityNode *> m_pVisibleCreaturesList;
+    CExoArrayList<CNWVisibilityNode> m_pVisibleCreaturesList;
     OBJECT_ID m_oidInvitedToPartyBy;
     BOOL m_bInvitedToParty;
     uint32_t m_nInvitedToPartyDay;
@@ -230,6 +229,7 @@ struct CNWSCreature : CNWSObject
     BOOL m_bMasterDroppedFromServer;
     uint32_t m_nMasterDroppedCalendarDay;
     uint32_t m_nMasterDroppedTimeOfDay;
+    OBJECT_ID m_oidCommandingPlayer;
     int32_t m_nOriginalFactionId;
     CExoArrayList<CNWSPersonalReputation> * m_pPersonalReputationList;
     CExoArrayList<int32_t> * m_pReputation;
@@ -246,24 +246,30 @@ struct CNWSCreature : CNWSObject
     int32_t m_nEncumbranceState;
     BOOL m_bLastPickupFailed;
     int32_t m_nTotalWeightCarried;
+    BOOL m_bIsPolymorphed;
     OBJECT_ID m_pPrePolymorphedItems[18];
     CResRef m_refPrePolymorphPortrait;
     uint16_t m_nPrePolymorphPortraitId;
-    BOOL m_bIsPolymorphed;
     uint16_t m_nPrePolymorphAppearanceType;
     uint8_t m_nPrePolymorphSTR;
     uint8_t m_nPrePolymorphCON;
     uint8_t m_nPrePolymorphDEX;
     uint16_t m_nPrePolymorphRacialType;
-    int16_t m_nPrePolymorphHP;
+    uint16_t m_nPrePolymorphSoundSet;
     int32_t m_nPolymorphSpellId1;
     int32_t m_nPolymorphSpellId2;
     int32_t m_nPolymorphSpellId3;
-    uint64_t m_nPolymorphACBonusEffect;
-    uint64_t m_nPolymorphHPBonusEffect;
-    BOOL m_bHasPrePolymorphCreatureWeaponProficiency;
     BOOL m_bPolymorphing;
     BOOL m_bPolymorphLocked;
+    BOOL m_bPreviouslyPolymorphed;
+    OBJECT_ID m_pPolymorphedItems[18];
+    CCombatInformation * m_pPrePolymorphCombatInformation;
+    int16_t	m_nPrePolymorphAC;
+    int32_t	m_nPrePolymorphBaseAttackBonus;
+    int16_t m_nPrePolymorphMaxHP;
+    char m_nPrePolymorphFortitude;
+    char m_nPrePolymorphReflex;
+    char m_nPrePolymorphWill;
     CNWSCreatureAppearanceInfo m_cAppearance;
     CNWSCreatureStats * m_pStats;
     uint32_t m_nLastRestCalendarDay;
@@ -271,7 +277,7 @@ struct CNWSCreature : CNWSObject
 
     CNWSCreature(OBJECT_ID oidId = 0x7f000000, BOOL bCharacterObject = false, BOOL bAddObjectToArray = true);
     ~CNWSCreature();
-    void SetId(OBJECT_ID oidNew);
+    void SetId(OBJECT_ID oidNew) override;
     float ComputeSpellRange(CExoString sTargetType, OBJECT_ID oidTarget);
     BOOL AddPathfindingWaitActionToFront(uint16_t nGroupId);
     BOOL AddMoveToPointActionToFront(uint16_t nGroupId, Vector vNewWalkPosition, OBJECT_ID oidNewWalkArea, OBJECT_ID oidObjectMovingTo = 0x7f000000, BOOL bRunToPoint = false, float fRange = 0.0f, float fTimeout = 0.0f, BOOL bClientMoving = false, int32_t nClientPathNumber = 0, int32_t nMoveToPosition = 0, int32_t nMoveMode = 0, BOOL bStraightLine = 0, BOOL bCheckedActionPoint = 0);
@@ -282,10 +288,9 @@ struct CNWSCreature : CNWSObject
     BOOL AddCastSpellActions(uint32_t nSpellId, int32_t nMultiClass, int32_t nDomainLevel, int32_t nMetaType, BOOL bSpontaneousCast, Vector vTargetLocation, OBJECT_ID oidTarget, BOOL bAreaTarget = false, BOOL bAddToFront = false, BOOL bFake = false, uint8_t nProjectilePathType = 0, BOOL bInstant = false, BOOL bAllowPolymorphedCast = false, int32_t nFeat = - 1, uint8_t nCasterLevel = 0xff);
     BOOL AddHealActions(OBJECT_ID oidTarget, OBJECT_ID oidItemUsed, int32_t nActivePropertyIndex = 0);
     BOOL AddSitActions(OBJECT_ID oidTarget);
-    BOOL AddItemCastSpellActions(OBJECT_ID oidItemUsed, int32_t nActivePropertyIndex, int32_t nSubPropertyIndex, Vector vTargetLocation, OBJECT_ID oidTarget, BOOL bAreaTarget = false);
+    BOOL AddItemCastSpellActions(OBJECT_ID oidItemUsed, int32_t nActivePropertyIndex, int32_t nSubPropertyIndex, Vector vTargetLocation, OBJECT_ID oidTarget, BOOL bAreaTarget = false, BOOL bDecrementCharges = true);
     BOOL AddTrapActions(OBJECT_ID oidTrap, uint8_t nAction, OBJECT_ID oidTargetObject, Vector vPosition, OBJECT_ID oidTargetArea);
     BOOL AddTauntActions(OBJECT_ID oidTarget);
-    BOOL AddDoorActions(OBJECT_ID oidDoor, uint8_t nAction, BOOL bAddToFront = false);
     BOOL AddCounterSpellActions(OBJECT_ID oidTarget);
     BOOL AddAppearActions(int32_t nAnimation = 63);
     BOOL AddDisappearActions(BOOL bReturning = false, int32_t nAnimation = 62);
@@ -305,21 +310,22 @@ struct CNWSCreature : CNWSObject
     void StartGuiTimingBar(uint32_t nTimeToRun, uint8_t nGuiTimingEventID);
     void StopGuiTimingBar();
     BOOL AddPickPocketActions(OBJECT_ID oidTarget);
-    void AddToArea(CNWSArea * pArea, float fX, float fY, float fZ, BOOL bForceAdd = false);
-    void AIUpdate();
+    void AddToArea(CNWSArea * pArea, float fX, float fY, float fZ, BOOL bForceAdd = false, BOOL bExecuteAreaEntryScript = true);
+    void AIUpdate() override;
     void SpawnInHeartbeatPerception(BOOL bAIUpdateLoop);
-    virtual CNWSCreature * AsNWSCreature();
-    virtual void ResetUpdateTimes(uint32_t nCalendarDay, uint32_t nTimeOfDay);
-    void EventHandler(uint32_t nEventId, OBJECT_ID nCallerObjectId, void * pScript, uint32_t nCalendarDay, uint32_t nTimeOfDay);
+    CNWSCreature * AsNWSCreature() override;
+    void ResetUpdateTimes(uint32_t nCalendarDay, uint32_t nTimeOfDay) override;
+    void EventHandler(uint32_t nEventId, OBJECT_ID nCallerObjectId, void * pScript, uint32_t nCalendarDay, uint32_t nTimeOfDay) override;
     uint32_t GetItemCount(BOOL bDroppableOnly = true);
     BOOL AcquireItem(CNWSItem * * pItem, OBJECT_ID oidPossessor = 0x7f000000, OBJECT_ID oidTargetRepository = 0x7f000000, uint8_t x = 0xff, uint8_t y = 0xff, BOOL bOriginatingFromScript = false, BOOL bDisplayFeedback = true);
     BOOL RemoveItem(CNWSItem * pItem, BOOL bMergeIntoRepository = true, BOOL bDisplayFeedback = true, BOOL bForceRemove = false, BOOL bSetPossessor = true);
     BOOL RemoveItemFromRepository(CNWSItem * pItem, BOOL bRemoveFromContainers = true);
     void RemoveFromArea(BOOL bReturning = false);
-    BOOL LoadCreature(CResGFF * pRes, CResStruct * cCreatureStruct, BOOL bIsSaveGame = false, BOOL bIsAssociate = false, BOOL bPreserveItemIds = true, BOOL bCopyObject = false);
+    BOOL LoadCreature(CResGFF * pRes, CResStruct * cCreatureStruct, BOOL bIsSaveGame = false, BOOL bIsAssociate = false, BOOL bPreserveObjectIDs = true, BOOL bCopyObject = false);
     BOOL SaveCreature(CResGFF * pRes, CResStruct * pStruct, BOOL bStoreAssociateList = true, BOOL bUseDesiredAreaInfo = false, BOOL bExportingChar = false, BOOL bSaveOIDs = true);
     BOOL LoadFromTemplate(CResRef cResRef, CExoString * pTag = nullptr);
     void ReadScriptsFromGff(CResGFF * pRes, CResStruct * pGffStructWithCreatureStats);
+    BOOL CheckForValidPolymorphEffectFromGFF(CResGFF * pRes, CResStruct * pStruct);
     void ReadItemsFromGff(CResGFF * pRes, CResStruct * pGffStructWithCreatureStats, BOOL bPreserveItemIDs = true, BOOL bRunScripts = true);
     int32_t CalculateSpellSaveDC(int32_t nSpellId);
     BOOL TestAIStateAsMode(int32_t nAIStateAction);
@@ -331,7 +337,7 @@ struct CNWSCreature : CNWSObject
     BOOL GetUseMonkAbilities();
     BOOL UseSkill(uint8_t nSkill, uint8_t nSubSkill, OBJECT_ID oidTarget, Vector vTargetPosition, OBJECT_ID oidArea, OBJECT_ID oidUsedItem = 0x7f000000, int32_t nActivePropertyIndex = 0);
     BOOL UseFeat(uint16_t nFeat, uint16_t nSubFeat, OBJECT_ID oidTarget, OBJECT_ID oidArea, Vector * pvTarget = nullptr);
-    BOOL UseItem(OBJECT_ID oidItem, uint8_t nActivePropertyIndex, uint8_t nSubPropertyIndex, OBJECT_ID oidTarget, Vector vTargetPosition, OBJECT_ID oidArea);
+    BOOL UseItem(OBJECT_ID oidItem, uint8_t nActivePropertyIndex, uint8_t nSubPropertyIndex, OBJECT_ID oidTarget, Vector vTargetPosition, OBJECT_ID oidArea, BOOL bUseCharges = true);
     BOOL ToggleMode(uint8_t nMode);
     BOOL GetMode(uint8_t nMode);
     void SetMode(uint8_t nMode, BOOL bSet);
@@ -344,10 +350,10 @@ struct CNWSCreature : CNWSObject
     BOOL GetAttackResultHit(CNWSCombatAttackData * pAttackData);
     void DoCombatStep(uint8_t nStepType, int32_t nAnimationTime, OBJECT_ID oidTargetObject);
     int16_t GetArmorClass();
-    int16_t GetMaxHitPoints(BOOL bIncludeToughness = true);
-    void DoDamage(int32_t nDamage);
+    int16_t GetMaxHitPoints(BOOL bIncludeToughness = true) override;
+    void DoDamage(int32_t nDamage) override;
     uint8_t CalculateDamagePower(CNWSObject * pTarget, BOOL bOffHand = false);
-    uint16_t GetDamageFlags();
+    uint32_t GetDamageFlags();
     float MaxAttackRange(OBJECT_ID oidTarget, BOOL bBaseValue = false, BOOL bPassiveRange = false);
     float DesiredAttackRange(OBJECT_ID oidTarget, BOOL bBaseValue = false);
     uint8_t GetDetectMode();
@@ -362,11 +368,11 @@ struct CNWSCreature : CNWSObject
     CExoArrayList<CGameEffect *> GetFilteredEffectList(uint8_t nEffectListType);
     int32_t GetWeaponPower(CNWSObject * pObject, BOOL bOffHand);
     void SendFeedbackMessage(uint16_t nFeedbackID, CNWCCMessageData * pMessageData = nullptr, CNWSPlayer * pFeedbackPlayer = nullptr);
-    void SendFeedbackString(CExoString sFeedbackMessage, CNWSPlayer * pFeedbackPlayer = nullptr);
-    BOOL EquipItem(uint32_t nInventorySlot, CNWSItem * pItem, BOOL bApplyPropertyEffects = true, BOOL bLoadingItem = false);
-    BOOL UnequipItem(CNWSItem * pItem, BOOL bUnequipWhilePolymorphed = false);
+    void SendFeedbackString(const CExoString & sFeedbackMessage, CNWSPlayer * pFeedbackPlayer = nullptr);
+    BOOL EquipItem(uint32_t nInventorySlot, CNWSItem * pItem, BOOL bApplyPropertyEffects = true, BOOL bLoadingItem = false, BOOL bRunEquipEvent = true);
+    BOOL UnequipItem(CNWSItem * pItem, BOOL bUnequipWhilePolymorphed = false, BOOL bRunUnequipEvent = true);
     void DestroyEquippedItems();
-    void SetLockOrientationToObject(OBJECT_ID oidLockOnObj);
+    void SetLockOrientationToObject(OBJECT_ID oidLockOnObj) override;
     BOOL LearnScroll(OBJECT_ID oidScrollToLearn);
     void ActionManager(uint32_t nActionTypeToAdd);
     void ActivityManager(uint32_t nActionTypePerforming);
@@ -376,7 +382,7 @@ struct CNWSCreature : CNWSObject
     uint8_t SavingThrowRoll(uint8_t nType, uint16_t nDifficultyClass, uint8_t nSaveType = 0, OBJECT_ID oidSaveVersus = 0x7f000000, BOOL bPrint = true, uint16_t nFeat = 0, BOOL bQueueFeedback = false);
     BOOL GetIsInUseRange(OBJECT_ID oidUse, float fAdditionalRange = 0.0f, BOOL bIgnoreTransparentDoors = false);
     BOOL GetUseRange(OBJECT_ID oidUse, Vector & vUsePoint, float & fMoveRange);
-    virtual void SetAnimation(int32_t nAnimation);
+    void SetAnimation(int32_t nAnimation) override;
     BOOL GetInvisible(CNWSObject * pVersus, BOOL bSendFeedback = false);
     BOOL GetBlind();
     void StoreCutsceneVars();
@@ -392,7 +398,7 @@ struct CNWSCreature : CNWSObject
     void BroadcastSavingThrowData(CNWCCMessageData * pMessageData);
     void BroadcastAssociateCommand(int32_t nAssociateCommand);
     void SetBroadcastedAOOTo(BOOL bValue);
-    virtual void BroadcastFloatyData(CNWCCMessageData * pMessageData);
+    void BroadcastFloatyData(CNWCCMessageData * pMessageData) override;
     void DisplayFloatyDataToSelf(STRREF nStrRef);
     void BroadcastSpellCast(uint32_t nSpellID, uint8_t nMultiClass, uint16_t nFeat);
     int32_t GetNumCounterSpellingCreatures(uint32_t nSpellID);
@@ -431,9 +437,10 @@ struct CNWSCreature : CNWSObject
     void DMResetClearedScripts(BOOL override = false);
     BOOL GetIsAbleToPossessFamiliar();
     BOOL GetIsPossessedFamiliar();
-    OBJECT_ID GetDominatedCreatureId();
+    OBJECT_ID GetDominatedCreatureId(int32_t nAssociateIndex = 1);
+    BOOL GetTakesCommandsFromPlayer(CNWSPlayer * pPlayer);
     CNWSFaction * GetFaction();
-    OBJECT_ID GetNearestEnemy(float fRange, OBJECT_ID oidToExclude = 0x7f000000, BOOL bVisible = true, BOOL bNoCreaturesOnLine = false);
+    OBJECT_ID GetNearestEnemy(float fRange, OBJECT_ID oidToExclude = 0x7f000000, BOOL bVisible = true, BOOL bAttackClearLineToTarget = false);
     int32_t GetCreatureReputation(OBJECT_ID oidSource, int32_t nSourceFactionId, BOOL bUseOriginalFaction = false);
     int32_t GetStandardFactionReputation(int32_t nStandardFactionId);
     void SetStandardFactionReputation(int32_t nStandardFactionId, int32_t nNewReputation);
@@ -444,7 +451,7 @@ struct CNWSCreature : CNWSObject
     void CleanOutPersonalReputationList();
     void LoadPersonalReputationList(CResGFF * pRes, CResStruct * pResStruct);
     void SavePersonalReputationList(CResGFF * pRes, CResStruct * pResStruct);
-    void LoadAssociateList(CResGFF * pRes, CResStruct * pResStruct);
+    void LoadAssociateList(CResGFF * pRes, CResStruct * pResStruct, BOOL bLoadOID);
     void SaveAssociateList(CResGFF * pRes, CResStruct * pResStruct, BOOL bSaveOIDs);
     void RealizeAssociateList();
     BOOL ReplyToInvitation(int32_t nInvitationReply, OBJECT_ID oidInvitedBy);
@@ -505,12 +512,14 @@ struct CNWSCreature : CNWSObject
     uint32_t AIActionCheckForceFollowObject(CNWSObjectActionNode * pNode);
     uint32_t AIActionDrive(CNWSObjectActionNode * pNode);
     uint32_t DriveUpdateLocation(BOOL bRun);
-    BOOL ComputeDriveDestination(uint8_t nDriveFlags, const Vector & vStartPoint, const Vector & vStartOrient);
     uint32_t AIActionCastSpell(CNWSObjectActionNode * pNode);
     uint32_t AIActionItemCastSpell(CNWSObjectActionNode * pNode);
     uint32_t AIActionRepositoryMove(CNWSObjectActionNode * pNode);
     uint32_t AIActionEquipItem(CNWSObjectActionNode * pNode);
     uint32_t AIActionUnequipItem(CNWSObjectActionNode * pNode);
+    BOOL CheckAttackClearLineToTarget(OBJECT_ID oidAttackTarget, Vector vTarget = {-10000000.0,-10000000.0,-10000000.0}, CNWSArea * pArea = nullptr);
+    CNWSCreature * GetNewCombatTarget(OBJECT_ID oidAttackTarget);
+    void ChangeAttackTarget(CNWSObjectActionNode * pNode, const OBJECT_ID oidAttackTarget);
     uint32_t AIActionAttackObject(CNWSObjectActionNode * pNode);
     uint32_t AIActionEncounterCreatureDestroySelf();
     uint32_t AIActionAnimalEmpathy(CNWSObjectActionNode * pNode);
@@ -534,13 +543,14 @@ struct CNWSCreature : CNWSObject
     uint32_t AIActionBarter(CNWSObjectActionNode * pNode);
     uint32_t AIActionExamine(CNWSObjectActionNode * pNode);
     uint32_t AIActionAreaWait(CNWSObjectActionNode * pNode);
-    virtual CResRef GetPortrait();
-    virtual void SetPortrait(CResRef cPortrait);
-    virtual void SetPortraitId(uint16_t nPortraitId);
+    CResRef GetPortrait() override;
+    void SetPortrait(CResRef cPortrait) override;
+    void SetPortraitId(uint16_t nPortraitId) override;
     void UpdateAppearanceForEquippedItems();
     void UpdatePersonalSpace();
     void UpdateAppearanceDependantInfo();
     CNWSJournal * GetJournal();
+    void ReloadJournalEntries();
     CNWSBarter * GetBarterInfo(BOOL bCreateIfNonExistant = true);
     BOOL StartBarter(OBJECT_ID oidTarget, OBJECT_ID oidItem, BOOL bFromActionQueue = false);
     void ClearHostileActionsVersus(CNWSCreature * pCreature);
@@ -549,6 +559,7 @@ struct CNWSCreature : CNWSObject
     void ClearAutoMapData();
     void SetAutoMapData(int32_t nNumAreas, OBJECT_ID * pAreaList, uint8_t * * pMapTileData);
     void ReconcileAutoMapData();
+    int RetrieveAreaAutoMapDataIndex(OBJECT_ID oidArea);
     void SetAllTilesExplored(OBJECT_ID oidArea, BOOL bExplored = true);
     void SetTileExplored(OBJECT_ID oidArea, int32_t nXPos, int32_t nYPos, BOOL newState = true);
     BOOL GetTileExplored(OBJECT_ID oidArea, int32_t nXPos, int32_t nYPos);
@@ -582,6 +593,7 @@ struct CNWSCreature : CNWSObject
     void QuickbarButton_RemoveItem(OBJECT_ID oidItem);
     void QuickbarButton_RemoveSpell(uint32_t nSpellId);
     BOOL LoadPolymorphData(CResGFF * pRes, CResStruct * pResStruct, BOOL bRunItemScripts = true);
+    void CleanUpOldPolymorphedItems();
     void LoadQuickButtons(CResGFF * pRes, CResStruct * pStruct);
     void CreateDefaultQuickButtons();
     void CreateDefaultQuickButtons_CheckItem(CNWSItem * pItem, uint32_t & nMaxCostRanged, uint32_t & nMaxCostMelee, OBJECT_ID & oidRangedWeapon, OBJECT_ID & oidMeleeWeapon);
@@ -622,8 +634,6 @@ struct CNWSCreature : CNWSObject
     void SetInTransit(int32_t nInTransit);
     BOOL Polymorph(int32_t nPolymorphType, CGameEffect * pParentEffect, BOOL bLoadingGame = false);
     BOOL UnPolymorph(CGameEffect * pParentEffect);
-    CNWSCreRestorePolymorphData * RemovePolymorphFromOutputCreature();
-    void RestorePolymorphToOutputCreature(CNWSCreRestorePolymorphData * polyData);
     int32_t GetTurnResistanceHD();
     uint16_t GetBodyBagAppearance();
     void CheckInventoryForPlotItems();
@@ -634,7 +644,6 @@ struct CNWSCreature : CNWSObject
     void RestoreItemPropertiesInRepository(CItemRepository * pItemRepository);
     BOOL BumpFriends(CNWSCreature * pBlockingCreature, const Vector & vStart, const Vector & vEnd);
     int32_t GetPVPReputation(OBJECT_ID oidSource);
-    int32_t GetPVPPlayerLikesMe(OBJECT_ID oidPC, uint8_t nPVPSetting);
     void InitialisePVPList();
     void SetAssociatesToForgetAggression(OBJECT_ID oidTarget);
     void RemoveDominationEffect();
@@ -654,10 +663,10 @@ struct CNWSCreature : CNWSObject
     BOOL DoSpotDetection(CNWSCreature * pHidingCreature, BOOL bTargetInvisible);
     float ComputeTotalWalkDistance();
     void ComputeAIStateOnAction(int32_t nActionId, OBJECT_ID oidActionTarget);
-    BOOL ClearAction(CNWSObjectActionNode * pNode, BOOL bIsTopmostAction);
+    BOOL ClearAction(CNWSObjectActionNode * pNode, BOOL bIsTopmostAction) override;
     void UpdateCombatRoundTimer();
-    void UpdateEffectPtrs();
-    void UpdateAttributesOnEffect(CGameEffect * e, BOOL bLoadingGame = false);
+    void UpdateEffectPtrs() override;
+    void UpdateAttributesOnEffect(CGameEffect * e, BOOL bLoadingGame = false) override;
     void AddToAssociateList(OBJECT_ID oidAssociate);
     void RemoveFromAssociateList(OBJECT_ID oidAssociate);
     void ReprocessAssociateList();
@@ -722,10 +731,12 @@ struct CNWSCreature : CNWSObject
     BOOL GetCanSlayAlignment(CNWSObject * pTarget, CNWItemProperty * pProperty);
     int32_t CalculateMaxElementalDamage(CNWSObject * pTarget, BOOL bOffHand);
     uint32_t CalculateProjectileTimeToTarget(Vector vPosition, BOOL bThrownWeapon);
-    uint32_t WalkUpdateLocation();
+    uint32_t WalkUpdateLocation(uint16_t nActionGroupID);
     BOOL WalkUpdateLocationDistance(float fDistance, Vector * vNewPosition, Vector * vNewOrientation, CExoArrayList<OBJECT_ID> * aIntersectingSubAreas);
     BOOL WalkUpdateLocationTestDistance(Vector vStart, Vector vEnd);
 
+    inline CExoLocString &GetFirstName() override { if (!m_pStats) return CNWSObject::GetFirstName(); return m_pStats->m_lsFirstName; }
+    inline CExoLocString &GetLastName() override { if (!m_pStats) return CNWSObject::GetLastName(); return m_pStats->m_lsLastName; }
 
 #ifdef NWN_CLASS_EXTENSION_CNWSCreature
     NWN_CLASS_EXTENSION_CNWSCreature
@@ -736,4 +747,3 @@ struct CNWSCreature : CNWSObject
 #ifdef NWN_API_EPILOGUE
 NWN_API_EPILOGUE(CNWSCreature)
 #endif
-

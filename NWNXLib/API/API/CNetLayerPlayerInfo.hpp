@@ -23,6 +23,7 @@ struct CNetLayerPlayerInfo
     uint32_t m_nSlidingWindowId;
     BOOL m_bPlayerPrivileges;
     BOOL m_bGameMasterPrivileges;
+    BOOL m_bGameMasterIsPlayerLogin;
     BOOL m_bServerAdminPrivileges;
     CExoString m_szMstServerChallenge;
     uint64_t m_nMstServerTimeout;
@@ -32,21 +33,23 @@ struct CNetLayerPlayerInfo
     CExoString m_sMstPasswordChallenge;
     uint8_t m_nConnectionType;
     BOOL m_bIsPrimaryPlayer;
-    CExoArrayList<CNetLayerPlayerCDKeyInfo> m_lstKeys;
+    CNetLayerPlayerCDKeyInfo m_cCDKey;
     CExoString m_sMstPasswordResponse;
     BOOL m_bCDKeyAuthorized;
     BOOL m_bMstPasswordAuthorized;
-    uint16_t m_nExpansionPacks;
     CExoString m_sPSID;
     uint8_t m_nPlatformId;
+    int32_t m_nBuildVersion;
+    int32_t m_nPatchRevision;
+    int32_t m_nPatchPostfix;
+    CExoString m_sCommitHash;
 
     CNetLayerPlayerInfo();
     void Initialize();
     void StartMstTimer(uint64_t nTime);
     BOOL UpdateMstTimer(uint64_t nTime);
-    void AddCDKey(const CExoString & sPublic, const CExoString & sResponse);
-    BOOL AllKeysAuthed(uint32_t & nExpansionPacks);
-    void SetCDKey(int nIndex, const CExoString & sPublic, const CExoString & sResponse);
+    void SetCDKey(const CExoString & sPublic, const CExoString & sResponse);
+    bool SatisfiesBuild(int32_t nBuild, int32_t nRevision, int32_t nPostfix) const;
 
 
 #ifdef NWN_CLASS_EXTENSION_CNetLayerPlayerInfo

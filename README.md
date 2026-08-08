@@ -1,12 +1,8 @@
-[![Discord](https://img.shields.io/discord/382306806866771978.svg?colorB=7289DA&label=Discord&logo=Discord&logoColor=7289DA&style=flat-square)](https://discord.gg/hxTt8Fr)
+# NWNX:EE (build 8193.37.17 - v89)
 
-# NWNX:EE (build 8193.7 - v79 - DEVELOPMENT build)
-
-This branch is targeting a development build. For the latest stable, use the [nwnx-stable](https://github.com/nwnxee/unified/tree/nwnx-stable) branch.
-
-- Latest release: [build8193.7](https://github.com/nwnxee/unified/releases/tag/build8193.7) - [Changelog](https://github.com/nwnxee/unified/blob/master/CHANGELOG.md#81936) 
-- Docker tag: `nwnxee/unified:build8193.7`
-- nwserver-linux md5: `61a133f1b35382476063aafaac2f41fb`
+- Latest release: [build8193.37.13-HEAD](https://github.com/nwnxee/unified/releases/latest) - [Changelog](https://github.com/nwnxee/unified/blob/master/CHANGELOG.md#Unreleased)
+- Docker tag: `nwnxee/unified:latest`
+- nwserver-linux md5: `0fa8c362e21f38321ec8fb9f6d885949`
 
 @mainpage
 @tableofcontents
@@ -23,11 +19,13 @@ Using NWNX:EE, developers can make plugins to do anything they want, including b
 
 NWNX:EE is not just for plugin developers. Module creators can use plugins created by the NWNX:EE contributors to expand the scripting and systems functionality of their modules.
 
+Check out the [Awesome NWNX page](Awesome-NWNX.md) for a list projects using NWNX.
+
 ## What versions of the server are supported?
 
 The most recent build of NWN:EE that is supported can be discovered at the top of this file. Please note that we do NOT support any server binaries other than the one in the dedicated server package. We support neither the binary released through the Beamdog client nor the one released through the Steam client. That said, the Steam and Beamdog binaries are almost always identical to the one in the dedicated server package, see the top of this readme for a md5sum of the binary we support.
 
-We release at least one update for each new version of the dedicated server package, which can be found here: [Server download packages and docker support](https://forums.beamdog.com/discussion/67157/server-download-packages-and-docker-support/p1)
+The dedicated server packages can be found here: https://nwn.beamdog.net/downloads/
 
 ## What platforms are supported?
 
@@ -35,7 +33,7 @@ Only Linux is natively supported. It is possible to run NWNX:EE on Windows using
 
 ## How do I use it?
 
-First of all, you need to get the NWNX binaries. If you want to compile the binaries yourself, refer to the compiling section below. Otherwise, you can download the binaries by clicking on the [Releases](https://github.com/nwnxee/unified/releases) tab at the top of the GitHub repository page. Keep in mind these are generally only updated whenever a new NWN patch is released.
+First of all, you need to get the NWNX binaries. If you want to compile the binaries yourself, refer to the compiling section below. Otherwise, you can download the binaries by clicking on the [Releases](https://github.com/nwnxee/unified/releases) header to the right of the GitHub repository page.
 
 ## Integrating NWNX:EE into your module
 
@@ -69,15 +67,13 @@ Optionally, you can use Docker to run the server with pre-built NWNX binaries. R
 
 `nwnxee/unified` supports the following [tags](https://hub.docker.com/r/nwnxee/unified/tags):
 
-* `[commit-hash]` (7 characters and 40)
+* `[commit-hash]` (7 characters)
 * `latest`
-* `[tag]` (for example: `build8193`)
+* `[tag]` (for example: `build8193.20` or `build8193.35.36`)
 
 Due to Docker's local image cache we recommend using the `[commit-hash]` tag to explicitly state which nwnx build to run. In comparison, the `latest` tag will usually hit the image cache and return an outdated build, as you have to run `docker pull nwnxee/unified` to update the `latest` image in your cache. Using the `[commit-hash]` tag removes the need to manually run docker pull on your machines, and enables you to roll back in a simple and sensible manner.
 
-Note, the image named `nwnxee/nwserver` exists for legacy reasons but is no longer actively maintained.
-
-Run the image exactly the same as you would run the `beamdog/nwserver` image. For any questions related to running nwserver, please refer to the nwserver [README](https://hub.docker.com/r/beamdog/nwserver/).
+Run the image exactly the same as you would run the `urothis/nwserver` image. For any questions related to running nwserver, please refer to the nwserver [README](https://hub.docker.com/r/urothis/nwserver/).
 
 nwnxee plugins are configured using environment variables passed to `docker run`. With the exception of ServerLogRedirector, all plugins are skipped by default. Plugins are activated by passing `n` to the corresponding environment variable for a given plugin in order to not skip it, e.g. `-e NWNX_ADMINISTRATION_SKIP=n`.
 
@@ -94,7 +90,7 @@ As of NWN:EE Release 8193 it is possible to run `nwserver-linux` and NWNX:EE on 
 
 ## Compiling NWNX:EE (native)
 
-Please note that you need a modern C++17 compatible compiler to build NWNX:EE. The code is confirmed to build on GCC 7.4+ or Clang 5.0+. It may be possible to build on an older compiler.
+Please note that you need a modern C++17 compatible compiler to build NWNX:EE. The code is confirmed to build on GCC 7.4+, Clang 5.0+ might work but is not supported. It may be possible to build on an older compiler.
 
 Each plugin may have one or more dependencies that must be satisfied in order to build that plugin. Refer to each individual plugin's CMakeLists.txt to determine their dependencies.
 
@@ -123,9 +119,26 @@ To build on Windows:
 3.  The Container will execute the ./scripts/buildnwnx.sh script
 4.  To perform a clean build pass -FORCECLEAN eg './scripts/rundockerbuild.ps1 -FORCECLEAN'
 
+## Docker images
+
+Prebuilt images exist for the master branch and can be found under [nwnxee/package](https://github.com/orgs/nwnxee/packages?repo_name=unified). The Dockerfiles in this repository serve the following purposes:
+
+1. `builder.Dockerfile` defines the environment to compile nwnx ([ghcr.io/nwnxee/builder](https://github.com/nwnxee/unified/pkgs/container/builder))
+1. `base.Dockerfile` defines the environment to run nwserver and nwnx, but has no nwnx binaries ([ghcr.io/nwnxee/nwnxee-base](https://github.com/nwnxee/unified/pkgs/container/nwnxee-base))
+1. `gha.Dockerfile` defines the environment to run nwserver and nwnx, using binaries built by CI [ghcr.io/nwnxee/unified](https://github.com/nwnxee/unified/pkgs/container/unified)
+1. `Dockerfile` defines the environment to run nwserver and nwnx, using binaries built locally with the builder image, and based on the local base image
+
+Note that the nwserver binary in the base image is included by starting "FROM [ghcr.io/urothis/nwserver](https://github.com/urothis/nwserver/pkgs/container/nwserver)".
+
+It is recommended to use the prebuilt images for production environments. If you cannot use a prebuilt image (e.g. if you are testing a preview branch), you can build the image locally using `Dockerfile`. You may use `Scripts/buildimages.sh` to do this, or run the docker build commands yourself.
+
 ## Contributing code
 
 All contribution are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for requirements and style guidelines.
+
+## Reporting bugs
+
+Use the [issue tracker](https://github.com/nwnxee/unified/issues/new) to report any bugs. Please always provide the relevant `stdout` output of your runs, ideally at debug log level (`NWNX_CORE_LOG_LEVEL=7`).
 
 ## Who makes NWNX:EE?
 
@@ -137,4 +150,4 @@ Thanks, but you should donate your dolla dolla bills to a good cause instead. If
 
 ## Contact
 
-The team can be contacted on Discord using the invite at the following URL: https://discord.gg/hxTt8Fr
+The team can be contacted on [Zulip](https://nwn.zulipchat.com)

@@ -2,11 +2,6 @@
 #include "Targets/MySQL.hpp"
 #include "Targets/PostgreSQL.hpp"
 #include "Targets/SQLite.hpp"
-#include "Services/Config/Config.hpp"
-#include "Services/Metrics/Metrics.hpp"
-#include "Serialize.hpp"
-#include "Utils.hpp"
-#include "Encoding.hpp"
 #include "API/Globals.hpp"
 #include "API/Constants.hpp"
 #include "API/CAppManager.hpp"
@@ -21,22 +16,9 @@ using namespace NWNXLib;
 
 static SQL::SQL* g_plugin;
 
-NWNX_PLUGIN_ENTRY Plugin::Info* PluginInfo()
+NWNX_PLUGIN_ENTRY Plugin* PluginLoad(Services::ProxyServiceList* services)
 {
-    return new Plugin::Info
-    {
-        "SQL",
-        "Execute queries and retrieve results from an SQL database.",
-        "Liareth",
-        "liarethnwn@gmail.com",
-        1,
-        true
-    };
-}
-
-NWNX_PLUGIN_ENTRY Plugin* PluginLoad(Plugin::CreateParams params)
-{
-    g_plugin = new SQL::SQL(params);
+    g_plugin = new SQL::SQL(services);
     return g_plugin;
 }
 
@@ -44,12 +26,12 @@ using namespace NWNXLib::Services;
 
 namespace SQL {
 
-SQL::SQL(const Plugin::CreateParams& params)
-    : Plugin(params), m_nextQueryId(0), m_queryMetrics(false)
+SQL::SQL(Services::ProxyServiceList* services)
+    : Plugin(services), m_nextQueryId(0), m_queryMetrics(false)
 {
 
 #define REGISTER(func) \
-    GetServices()->m_events->RegisterEvent(#func, \
+    ScriptAPI::RegisterEvent(PLUGIN_NAME, #func, \
         [this](ArgumentStack&& args){ return func(std::move(args)); })
 
     REGISTER(PrepareQuery);
@@ -62,6 +44,7 @@ SQL::SQL(const Plugin::CreateParams& params)
     REGISTER(PreparedFloat);
     REGISTER(PreparedObjectId);
     REGISTER(PreparedObjectFull);
+    REGISTER(PreparedNULL);
     REGISTER(ReadFullObjectInActiveRow);
     REGISTER(GetAffectedRows);
     REGISTER(GetDatabaseType);
@@ -71,7 +54,7 @@ SQL::SQL(const Plugin::CreateParams& params)
 
 #undef REGISTER
 
-    m_queryMetrics = GetServices()->m_config->Get<bool>("QUERY_METRICS", false);
+    m_queryMetrics = Config::Get<bool>("QUERY_METRICS", false);
 
     if (m_queryMetrics)
     {
@@ -79,11 +62,11 @@ SQL::SQL(const Plugin::CreateParams& params)
         GetServices()->m_metrics->SetResampler("SQLQueries", sum, std::chrono::seconds(1));
     }
 
-    auto type = GetServices()->m_config->Get<std::string>("TYPE", "MYSQL");
-    std::transform(std::begin(type), std::end(type), std::begin(type), ::toupper);
+    m_databaseType = Config::Get<std::string>("TYPE", "MYSQL");
+    std::transform(std::begin(m_databaseType), std::end(m_databaseType), std::begin(m_databaseType), ::toupper);
 
-    LOG_INFO("Connecting to type %s", type);
-    if (type == "MYSQL")
+    LOG_INFO("Connecting to type %s", m_databaseType);
+    if (m_databaseType == "MYSQL")
     {
 #if defined(NWNX_SQL_MYSQL_SUPPORT)
         m_target = std::make_unique<MySQL>();
@@ -91,7 +74,7 @@ SQL::SQL(const Plugin::CreateParams& params)
         throw std::runtime_error("Targeting MySQL, but no MySQL support built in.");
 #endif
     }
-    else if (type == "POSTGRESQL")
+    else if (m_databaseType == "POSTGRESQL")
     {
 #if defined(NWNX_SQL_POSTGRESQL_SUPPORT)
         m_target = std::make_unique<PostgreSQL>();
@@ -99,20 +82,16 @@ SQL::SQL(const Plugin::CreateParams& params)
         throw std::runtime_error("Targeting PostgreSQL, but no PostgreSQL support built in.");
 #endif
     }
-    else if (type == "SQLITE")
+    else if (m_databaseType == "SQLITE")
     {
-#if defined(NWNX_SQL_SQLITE_SUPPORT)
         m_target = std::make_unique<SQLite>();
-#else
-        throw std::runtime_error("Targeting SQLite3, but no SQLite3 support built in.");
-#endif
     }
     else
     {
         throw std::runtime_error("Invalid database type selected.");
     }
 
-    m_utf8 = GetServices()->m_config->Get<bool>("USE_UTF8", false);
+    m_utf8 = Config::Get<bool>("USE_UTF8", false);
 
     Reconnect(19);
 }
@@ -129,7 +108,7 @@ bool SQL::Reconnect(int32_t attempts)
     {
         try
         {
-            m_target->Connect(GetServices()->m_config.get());
+            m_target->Connect();
             LOG_NOTICE("Reconnect successful.");
             break;
         }
@@ -150,13 +129,13 @@ bool SQL::Reconnect(int32_t attempts)
     return m_target->IsConnected();
 }
 
-Events::ArgumentStack SQL::PrepareQuery(Events::ArgumentStack&& args)
+ArgumentStack SQL::PrepareQuery(ArgumentStack&& args)
 {
-    m_activeQuery = Events::ExtractArgument<std::string>(args);
+    m_activeQuery = args.extract<std::string>();
 
     if (m_utf8)
     {
-        m_activeQuery = Encoding::ToUTF8(m_activeQuery);
+        m_activeQuery = String::ToUTF8(m_activeQuery);
     }
 
     m_activeResults = ResultSet();
@@ -164,19 +143,19 @@ Events::ArgumentStack SQL::PrepareQuery(Events::ArgumentStack&& args)
     if (!m_target->IsConnected() && !Reconnect(3))
     {
         LOG_ERROR("Database connection lost. Aborting.");
-        return Events::Arguments(0);
+        return false;
     }
 
     m_queryPrepared = m_target->PrepareQuery(m_activeQuery);
-    return Events::Arguments(static_cast<int32_t>(m_queryPrepared));
+    return m_queryPrepared;
 }
 
-Events::ArgumentStack SQL::ExecutePreparedQuery(Events::ArgumentStack&&)
+ArgumentStack SQL::ExecutePreparedQuery(ArgumentStack&&)
 {
     if (!m_queryPrepared)
     {
         LOG_WARNING("Trying to execute prepared query without successful PrepareQuery() call");
-        return Events::Arguments(0);
+        return 0;
     }
 
     // NOTE: There is a time-of-check-to-time-of-use race condition here.
@@ -189,7 +168,7 @@ Events::ArgumentStack SQL::ExecutePreparedQuery(Events::ArgumentStack&&)
         if (!Reconnect())
         {
             LOG_ERROR("Database connection lost. Aborting.");
-            return Events::Arguments(0);
+            return 0;
         }
         else
         {
@@ -198,7 +177,7 @@ Events::ArgumentStack SQL::ExecutePreparedQuery(Events::ArgumentStack&&)
             if (!m_target->PrepareQuery(m_activeQuery))
             {
                 LOG_ERROR("Recovery PrepareQuery() failed: %s", m_target->GetLastError());
-                return Events::Arguments(0);
+                return 0;
             }
 
         }
@@ -254,15 +233,15 @@ Events::ArgumentStack SQL::ExecutePreparedQuery(Events::ArgumentStack&&)
         LOG_WARNING("Failure Message. Query ID: '%i', \"%s\"", queryId, lastError);
     }
 
-    return Events::Arguments(querySucceeded ? queryId : 0);
+    return querySucceeded ? queryId : 0;
 }
 
-Events::ArgumentStack SQL::ReadyToReadNextRow(Events::ArgumentStack&&)
+ArgumentStack SQL::ReadyToReadNextRow(ArgumentStack&&)
 {
-    return Events::Arguments(m_activeResults.empty() ? 0 : 1);
+    return m_activeResults.empty() ? 0 : 1;
 }
 
-Events::ArgumentStack SQL::ReadNextRow(Events::ArgumentStack&&)
+ArgumentStack SQL::ReadNextRow(ArgumentStack&&)
 {
     if (m_activeResults.empty())
     {
@@ -271,24 +250,24 @@ Events::ArgumentStack SQL::ReadNextRow(Events::ArgumentStack&&)
 
     m_activeRow = std::move(m_activeResults.front());
     m_activeResults.pop();
-    return Events::Arguments();
+    return {};
 }
 
-Events::ArgumentStack SQL::ReadDataInActiveRow(Events::ArgumentStack&& args)
+ArgumentStack SQL::ReadDataInActiveRow(ArgumentStack&& args)
 {
-    const auto column = static_cast<size_t>(Events::ExtractArgument<int32_t>(args));
+    const size_t column = args.extract<int32_t>();
 
     if (column >= m_activeRow.size())
     {
         throw std::runtime_error("Trying to access column outside of range.");
     }
 
-    return Events::Arguments(m_utf8 ? Encoding::FromUTF8(m_activeRow[column]) : m_activeRow[column]);
+    return ScriptAPI::Arguments(m_utf8 ? String::FromUTF8(m_activeRow[column]) : m_activeRow[column]);
 }
-Events::ArgumentStack SQL::PreparedInt(Events::ArgumentStack&& args)
+ArgumentStack SQL::PreparedInt(ArgumentStack&& args)
 {
-    auto position = Events::ExtractArgument<int32_t>(args);
-    auto value = Events::ExtractArgument<int32_t>(args);
+    const auto position = args.extract<int32_t>();
+    const auto value = args.extract<int32_t>();
     if (position >= m_target->GetPreparedQueryParamCount())
     {
         LOG_WARNING("Prepared argument (pos:%d, value:0x%08x) out of bounds", position, value);
@@ -297,26 +276,26 @@ Events::ArgumentStack SQL::PreparedInt(Events::ArgumentStack&& args)
     {
         m_target->PrepareInt(position, value);
     }
-    return Events::Arguments();
+    return {};
 }
-Events::ArgumentStack SQL::PreparedString(Events::ArgumentStack&& args)
+ArgumentStack SQL::PreparedString(ArgumentStack&& args)
 {
-    auto position = Events::ExtractArgument<int32_t>(args);
-    auto value = Events::ExtractArgument<std::string>(args);
+    const auto position = args.extract<int32_t>();
+    const auto value = args.extract<std::string>();
     if (position >= m_target->GetPreparedQueryParamCount())
     {
         LOG_WARNING("Prepared argument (pos:%d, value:'%s') out of bounds", position, value);
     }
     else
     {
-        m_target->PrepareString(position, m_utf8 ? Encoding::ToUTF8(value) : value);
+        m_target->PrepareString(position, m_utf8 ? String::ToUTF8(value) : value);
     }
-    return Events::Arguments();
+    return {};
 }
-Events::ArgumentStack SQL::PreparedFloat(Events::ArgumentStack&& args)
+ArgumentStack SQL::PreparedFloat(ArgumentStack&& args)
 {
-    auto position = Events::ExtractArgument<int32_t>(args);
-    auto value = Events::ExtractArgument<float>(args);
+    const auto position = args.extract<int32_t>();
+    const auto value = args.extract<float>();
     if (position >= m_target->GetPreparedQueryParamCount())
     {
         LOG_WARNING("Prepared argument (pos:%d, value:'%f') out of bounds", position, value);
@@ -325,12 +304,12 @@ Events::ArgumentStack SQL::PreparedFloat(Events::ArgumentStack&& args)
     {
         m_target->PrepareFloat(position, value);
     }
-    return Events::Arguments();
+    return {};
 }
-Events::ArgumentStack SQL::PreparedObjectId(Events::ArgumentStack&& args)
+ArgumentStack SQL::PreparedObjectId(ArgumentStack&& args)
 {
-    auto position = Events::ExtractArgument<int32_t>(args);
-    auto value = Events::ExtractArgument<API::Types::ObjectID>(args);
+    auto position = args.extract<int32_t>();
+    auto value = args.extract<ObjectID>();
     int32_t valInt;
     std::memcpy(&valInt, &value, sizeof(valInt)); static_assert(sizeof(valInt) == sizeof(value));
     if (position >= m_target->GetPreparedQueryParamCount())
@@ -341,12 +320,13 @@ Events::ArgumentStack SQL::PreparedObjectId(Events::ArgumentStack&& args)
     {
         m_target->PrepareInt(position, valInt);
     }
-    return Events::Arguments();
+    return {};
 }
-Events::ArgumentStack SQL::PreparedObjectFull(Events::ArgumentStack&& args)
+ArgumentStack SQL::PreparedObjectFull(ArgumentStack&& args)
 {
-    auto position = Events::ExtractArgument<int32_t>(args);
-    auto value = Events::ExtractArgument<API::Types::ObjectID>(args);
+    auto position = args.extract<int32_t>();
+    auto value = args.extract<ObjectID>();
+    bool base64 = !!args.extract<int32_t>();
 
     if (position >= m_target->GetPreparedQueryParamCount())
     {
@@ -355,18 +335,39 @@ Events::ArgumentStack SQL::PreparedObjectFull(Events::ArgumentStack&& args)
     else
     {
         CGameObject *pObject = API::Globals::AppManager()->m_pServerExoApp->GetGameObject(value);
-        m_target->PrepareString(position, SerializeGameObjectB64(pObject));
+        if (base64) {
+            std::string serializedObject = Utils::SerializeGameObjectB64(pObject);
+            m_target->PrepareString(position, serializedObject);
+        } else {
+            std::vector<uint8_t> serializedObjectVec = Utils::SerializeGameObject(pObject);
+            m_target->PrepareBinary(position, serializedObjectVec);
+        }
     }
-    return Events::Arguments();
+    return {};
+}
+ArgumentStack SQL::PreparedNULL(ArgumentStack&& args)
+{
+    auto position = args.extract<int32_t>();
+
+    if (position >= m_target->GetPreparedQueryParamCount())
+    {
+        LOG_WARNING("Prepared argument (pos:%d, value:NULL) out of bounds", position);
+    }
+    else
+    {
+        m_target->PrepareNULL(position);
+    }
+    return {};
 }
 
-Events::ArgumentStack SQL::ReadFullObjectInActiveRow(Events::ArgumentStack&& args)
+ArgumentStack SQL::ReadFullObjectInActiveRow(ArgumentStack&& args)
 {
-    const auto column = static_cast<size_t>(Events::ExtractArgument<int32_t>(args));
-    const auto owner = Events::ExtractArgument<API::Types::ObjectID>(args);
-    const auto x = Events::ExtractArgument<float>(args);
-    const auto y = Events::ExtractArgument<float>(args);
-    const auto z = Events::ExtractArgument<float>(args);
+    const size_t column = args.extract<int32_t>();
+    const auto owner = args.extract<ObjectID>();
+    const auto x = args.extract<float>();
+    const auto y = args.extract<float>();
+    const auto z = args.extract<float>();
+    const bool base64 = !!args.extract<int32_t>();
 
     if (column >= m_activeRow.size())
     {
@@ -374,10 +375,11 @@ Events::ArgumentStack SQL::ReadFullObjectInActiveRow(Events::ArgumentStack&& arg
     }
 
     std::string serialized = m_activeRow[column];
-    API::Types::ObjectID retval = API::Constants::OBJECT_INVALID;
-    if (CGameObject *pObject = DeserializeGameObjectB64(serialized))
+    ObjectID retval = API::Constants::OBJECT_INVALID;
+    CGameObject *pObject = base64 ? Utils::DeserializeGameObjectB64(serialized) : Utils::DeserializeGameObject(std::vector<uint8_t>(serialized.begin(), serialized.end()));
+    if (pObject)
     {
-        retval = static_cast<API::Types::ObjectID>(pObject->m_idSelf);
+        retval = static_cast<ObjectID>(pObject->m_idSelf);
         ASSERT(API::Globals::AppManager()->m_pServerExoApp->GetGameObject(retval));
 
         CGameObject *pOwner = API::Globals::AppManager()->m_pServerExoApp->GetGameObject(owner);
@@ -396,34 +398,34 @@ Events::ArgumentStack SQL::ReadFullObjectInActiveRow(Events::ArgumentStack&& arg
             LOG_INFO("No valid owner given, object %x deserialized outside world bounds", retval);
         }
     }
-    return Events::Arguments(retval);
+    return retval;
 }
 
-Events::ArgumentStack SQL::GetAffectedRows(Events::ArgumentStack&&)
+ArgumentStack SQL::GetAffectedRows(ArgumentStack&&)
 {
-    return Events::Arguments(m_target->GetAffectedRows());
+    return m_target->GetAffectedRows();
 }
 
-Events::ArgumentStack SQL::GetDatabaseType(Events::ArgumentStack&&)
+ArgumentStack SQL::GetDatabaseType(ArgumentStack&&)
 {
-    return Events::Arguments(GetServices()->m_config->Get<std::string>("TYPE", "MYSQL"));
+    return m_databaseType;
 }
 
-Events::ArgumentStack SQL::DestroyPreparedQuery(Events::ArgumentStack&&)
+ArgumentStack SQL::DestroyPreparedQuery(ArgumentStack&&)
 {
     m_target->DestroyPreparedQuery();
     m_queryPrepared = false;
-    return Events::Arguments();
+    return {};
 }
 
-Events::ArgumentStack SQL::GetLastError(Events::ArgumentStack&&)
+ArgumentStack SQL::GetLastError(ArgumentStack&&)
 {
-    return Events::Arguments(m_target->GetLastError(true));
+    return m_target->GetLastError(true);
 }
 
-Events::ArgumentStack SQL::GetPreparedQueryParamCount(Events::ArgumentStack&&)
+ArgumentStack SQL::GetPreparedQueryParamCount(ArgumentStack&&)
 {
-    return Events::Arguments(m_queryPrepared ? m_target->GetPreparedQueryParamCount() : -1);
+    return m_queryPrepared ? m_target->GetPreparedQueryParamCount() : -1;
 }
 
 }

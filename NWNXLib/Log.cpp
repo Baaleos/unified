@@ -1,6 +1,4 @@
-#include "Log.hpp"
-#include "Assert.hpp"
-#include "Platform/Debug.hpp"
+#include "nwnx.hpp"
 #include "API/Globals.hpp"
 #include "API/CExoBase.hpp"
 
@@ -8,7 +6,6 @@
 #include <unordered_map>
 
 #include "External/rang/rang.hpp"
-#include "Services/Tasks/Tasks.hpp"
 
 namespace NWNXLib::Log {
 
@@ -18,7 +15,8 @@ static bool s_PrintPlugin;
 static bool s_PrintSource;
 static bool s_ColorOutput;
 static bool s_ForceColor;
-static NWNXLib::Services::Tasks* s_Tasks;
+static std::string s_LogFile;
+
 void SetPrintTimestamp(bool value)
 {
     s_PrintTimestamp = value;
@@ -69,9 +67,9 @@ bool GetForceColor()
 {
     return s_ForceColor;
 }
-void SetAsync(NWNXLib::Services::Tasks* tasks)
+void SetLogFile(const std::string& logfilepath)
 {
-    s_Tasks = tasks;
+    s_LogFile = logfilepath;
 }
 
 void InternalTrace(Channel::Enum channel, Channel::Enum allowedChannel, const char* message)
@@ -82,40 +80,49 @@ void InternalTrace(Channel::Enum channel, Channel::Enum allowedChannel, const ch
         return;
     }
 
+    INSTR_MESSAGE(message, strlen(message));
+
     switch (channel)
     {
         case Channel::SEV_DEBUG:   std::cout << rang::fg::cyan << rang::style::dim;  break;
         case Channel::SEV_INFO:    std::cout << rang::fg::gray;                      break;
         case Channel::SEV_NOTICE:  /*default*/                                       break;
         case Channel::SEV_WARNING: std::cout << rang::fg::yellow;                    break;
-        case Channel::SEV_ERROR:   std::cout << rang::fg::red << rang::style::dim;   break;
+        case Channel::SEV_ERROR:   std::cout << rang::fg::red;                       break;
         case Channel::SEV_FATAL:   std::cout << rang::fg::red << rang::style::bold;  break;
     }
     std::cout << message << rang::style::reset << rang::fg::reset  << std::endl;
 
-    // Also write to a file - this could be done in a much nicer way but I just want to retain the old functionality
-    // for now. We can change this later if we want or need to.
-
-    static std::string logPath = API::Globals::ExoBase()->m_sUserDirectory.CStr() + std::string("/logs.0/nwnx.txt");
-    static FILE* logFile = std::fopen(logPath.c_str(), "a+");
-
-    if (logFile)
-    {
-        std::fprintf(logFile, "%s\n", message);
-        if (s_Tasks)
-        {
-            s_Tasks->QueueOnAsyncThread([&]() { std::fflush(logFile); });
-        }
-        else
-        {
-            std::fflush(logFile);
-        }
-    }
+    // Also write to a file if configured
+    WriteToLogFile(message);
 
     if (channel == Channel::SEV_FATAL)
     {
         ASSERT_FAIL();
         std::abort();
+    }
+}
+
+void WriteToLogFile(const char* message)
+{
+    static FILE* logFile;
+
+    if (!logFile && s_LogFile != "")
+    {
+        logFile = std::fopen(s_LogFile.c_str(), "a+");
+        if (logFile)
+        {
+            std::fprintf(logFile,
+        "=====================================================================\n"
+        "       NWNX secondary log file. This log file may be incomplete!     \n"
+        " Please attach stdout output instead of this file to any bug reports.\n"
+        "=====================================================================\n");
+        }
+    }
+    if (logFile)
+    {
+        std::fprintf(logFile, "%s\n", message);
+        std::fflush(logFile);
     }
 }
 
@@ -143,14 +150,12 @@ void SetLogLevel(const char* plugin, Channel::Enum logLevel)
 
 std::ostream& operator<<(std::ostream& out, const CExoString& str)
 {
-    out << str.m_sString;
+    out << str.CStr();
     return out;
 }
 
 std::ostream& operator<<(std::ostream& out, const CResRef& str)
 {
-    char buffer[17] = {0};
-    std::memcpy(buffer, str.m_resRefLowerCase, 16);
-    out << buffer;
+    out << str.GetResRefStr();
     return out;
 }

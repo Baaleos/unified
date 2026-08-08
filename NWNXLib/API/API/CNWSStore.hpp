@@ -20,7 +20,6 @@ struct CNWSPlayer;
 struct CResGFF;
 struct CResStruct;
 struct CStoreCustomer;
-struct CStoreCustomer;
 
 
 typedef int BOOL;
@@ -51,7 +50,7 @@ struct CNWSStore : CNWSObject
     ~CNWSStore();
     virtual CNWSStore * AsNWSStore();
     BOOL LoadFromTemplate(CResRef cResRef, CExoString * pTag = nullptr);
-    BOOL LoadStore(CResGFF * pRes, CResStruct * cStoreStruct, CExoString * pTag = nullptr);
+    BOOL LoadStore(CResGFF * pRes, CResStruct * cStoreStruct, BOOL bLoadOID, CExoString * pTag = nullptr);
     BOOL SaveStore(CResGFF * pRes, CResStruct * pStruct, BOOL bSaveOIDs);
     void AddToArea(CNWSArea * pArea, float fX, float fY, float fZ, BOOL bRunScripts = true);
     void RemoveFromArea();
@@ -84,4 +83,3 @@ struct CNWSStore : CNWSObject
 #ifdef NWN_API_EPILOGUE
 NWN_API_EPILOGUE(CNWSStore)
 #endif
-

@@ -5,6 +5,7 @@
 #include "CExoString.hpp"
 #include "CKeyTableInfo.hpp"
 #include "RESID.hpp"
+#include "CExoResMan.hpp"
 
 
 #ifdef NWN_API_PROLOGUE
@@ -37,6 +38,7 @@ struct CExoKeyTable
     uint32_t m_nNumPackedFiles;
     CExoPackedFile * * m_pExoPackedFile;
     BOOL m_bIsOverride;
+    ResourceAccessCheckFn m_resourceAccessCheck;
     BOOL m_bAllowDynamicReload;
     CExoString m_sResolvedAliasCache;
     long m_nLastModified;
@@ -45,12 +47,11 @@ struct CExoKeyTable
     ~CExoKeyTable();
     BOOL AddDirectoryContents(BOOL bPopulateTable = true);
     BOOL AddEncapsulatedContents(BOOL bPopulateTable = true);
-    BOOL AddResourceImageContents(BOOL bPopulateTable = true, uint8_t * pCipher = nullptr);
     BOOL AddManifestContents(BOOL bPopulateTable = true);
     CKeyTableEntry * AddKey(const CResRef & cNewResRef, RESTYPE nType, RESID nNewResID, BOOL bPopulateEntry);
     BOOL AddKeyTableContents(BOOL bPopulateTable = true);
     CKeyTableEntry * AllocateTable(uint32_t nTableEntries, BOOL bKeepInMemory = false);
-    BOOL BuildNewTable(uint32_t nTableType, const CExoString & sName, uint32_t nTableID, BOOL bPopulateTable = true, uint8_t * pCipher = nullptr);
+    BOOL BuildNewTable(uint32_t nTableType, const CExoString & sName, uint32_t nTableID, BOOL bPopulateTable = true, const ResourceAccessCheckFn accessCheck = nullptr);
     void DeleteTableList(CExoLinkedList<CKeyTableInfo> * lKeyTables);
     void DestroyTable();
     CKeyTableEntry * FindKey(const CResRef & cResRef, RESTYPE nType);
@@ -62,7 +63,7 @@ struct CExoKeyTable
     BOOL GetTableIndex(uint32_t & nIndex, const CResRef & cResRef, RESTYPE nType);
     uint32_t Hash(const CResRef & cResRef, RESTYPE nType);
     BOOL LocateBifFile(const CExoString & sFileName);
-    void RebuildTable(uint8_t * pCipher = nullptr);
+    void RebuildTable();
     int32_t GetEntryCount(BOOL bCountStatic);
     void SetAllowDynamicReload(BOOL v);
     void DropContentsFromCache();

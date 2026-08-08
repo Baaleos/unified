@@ -1,11 +1,21 @@
 #if defined(NWNX_SQL_POSTGRESQL_SUPPORT)
 
+#include "nwnx.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <regex>
 
 #include "PostgreSQL.hpp"
-#include "Services/Config/Config.hpp"
+using namespace NWNXLib;
+
+static bool s_nextQueryBinaryResults;
+
+NWNX_EXPORT ArgumentStack PostgreSQL_SetNextQueryResultsBinaryMode(ArgumentStack&&)
+{
+    LOG_DEBUG("Next query only: Results will be returned in binary mode.");
+    s_nextQueryBinaryResults = true;
+    return {};
+}
 
 namespace SQL {
 
@@ -19,25 +29,26 @@ PostgreSQL::~PostgreSQL()
     PQfinish(m_conn);
 }
 
-void PostgreSQL::Connect(NWNXLib::Services::ConfigProxy* config)
+void PostgreSQL::Connect()
 {
-    const std::string host = "host=" + config->Get<std::string>("HOST", "localhost");
-    const std::string user = "user=" + config->Require<std::string>("USERNAME");
-    const std::string pass = "password=" + config->Require<std::string>("PASSWORD");
+    const std::string host = "host=" + Config::Get<std::string>("HOST", "localhost");
+    const std::string user = "user=" + *Config::Get<std::string>("USERNAME");
+    const std::string pass = "password=" + *Config::Get<std::string>("PASSWORD");
+    const std::string sslmode = "sslmode=" + Config::Get<std::string>("SSL_MODE", "disable");
 
     // Database technically is optional.  If not given, it will connect to the default
     // database of the given USERNAME.
-    const auto DB = config->Get<std::string>("DATABASE");
+    const auto DB = Config::Get<std::string>("DATABASE");
     if (DB)
     {
         LOG_DEBUG("DB set to %s", (*DB));
     }
     const std::string db   = DB ? "dbname=" + (*DB) : nullptr;
 
-    const std::string port = "port=" + config->Get<std::string>("PORT", "5432");
+    const std::string port = "port=" + Config::Get<std::string>("PORT", "5432");
 
     // Build the m_connection string - this is used later in the PQping (PQping doesn't need the password).
-    m_connectString = host + " " + port + " " + db + " " + user ;
+    m_connectString = host + " " + port + " " + db + " " + user + " " + sslmode;
 
     // hide the password in the log file
     LOG_INFO("Connect String:  %s password=xxxxxxxx", m_connectString);
@@ -52,6 +63,22 @@ void PostgreSQL::Connect(NWNXLib::Services::ConfigProxy* config)
     if (PQstatus(m_conn) != CONNECTION_OK)
     {
         throw std::runtime_error("Error connecting to Postgres DB");
+    }
+
+    s_nextQueryBinaryResults = false;
+
+    if (auto charset = Config::Get<std::string>("CHARACTER_SET"))
+    {
+        LOG_INFO("Connection character set is '%s'", *charset);
+        const std::string query = "SET CLIENT_ENCODING TO '" + *charset + "';";
+        PGresult* ret = PQexec(m_conn, query.c_str());
+        SCOPEGUARD(PQclear(ret));
+        if (PQresultStatus(ret) != PGRES_COMMAND_OK)
+        {
+            throw std::runtime_error(std::string("unable to set connection character set: ") +
+                PQerrorMessage(m_conn));
+        }
+
     }
 }
 
@@ -98,6 +125,8 @@ bool PostgreSQL::PrepareQuery(const Query& query)
     LOG_DEBUG("Detected %d parameters.", m_paramCount);
 
     m_params.resize(m_paramCount);
+    m_formats.resize(m_paramCount);
+    m_lengths.resize(m_paramCount);
 
     PGresult *res = PQprepare(m_conn,      // connection
                         "",                // statement name, blank in this case.
@@ -139,8 +168,24 @@ std::optional<ResultSet> PostgreSQL::ExecuteQuery()
         const unsigned int sz = m_params.size();
         for (unsigned int i=0; i<sz; i++)
         {
-            paramValues[i] = new char[m_params[i].size()+1];
-            strcpy(paramValues[i], m_params[i].c_str());
+            if (m_params[i])
+            {
+                if (m_formats[i] == 1)
+                {
+                    size_t toLen;
+                    paramValues[i] = (char*) PQescapeByteaConn(m_conn,
+                        (const unsigned char*) m_params[i]->c_str(), m_params[i]->size(), &toLen);
+                }
+                else
+                {
+                    paramValues[i] = new char[m_params[i]->size()+1];
+                    strcpy(paramValues[i], m_params[i]->c_str());
+                }
+            }
+            else
+            {
+                paramValues[i] = nullptr;
+            }
         }
     }
 
@@ -149,6 +194,8 @@ std::optional<ResultSet> PostgreSQL::ExecuteQuery()
         "",                                     // statement name (same as in the prepare above)
         m_paramCount,                           // m_paramCount from previous
         paramValues,                            // param data (can be null)
+        // NB: Both of these are null; all data passed in is text mode.
+        //     bytea data gets escaped automatically by setting m_format[i] in PrepareBinary().
         NULL,                                   // param lengths - only for binary data
         NULL,                                   // param formats - server will infer text
         0);                                     // result format, 0=text, 1=binary
@@ -177,10 +224,21 @@ std::optional<ResultSet> PostgreSQL::ExecuteQuery()
             row.reserve(cols);
             for (int j=0; j<(int)cols; j++)
             {
-                row.emplace_back(Result(PQgetvalue(res, i, j), PQgetlength(res, i, j)));
+                const unsigned char* ptr = (unsigned char*) PQgetvalue(res, i, j);
+                size_t ptrLen = PQgetlength(res, i, j);
+                if (j == 0 && s_nextQueryBinaryResults)
+                {
+                    LOG_DEBUG("Forcefully unescaping query result column %d.", j);
+                    ptr = PQunescapeBytea(ptr, &ptrLen);
+                }
+
+                row.emplace_back(Result((char*) ptr, ptrLen));
             }
             results.push(row);
         }
+
+        // Always disable binary mode, even if no columns with it were read.
+        s_nextQueryBinaryResults = false;
 
         PQclear(res);
         return std::make_optional<ResultSet>(std::move(results)); // Succeeded query, succeeded results.
@@ -223,16 +281,33 @@ void PostgreSQL::PrepareInt(int32_t position, int32_t value)
 {
     LOG_DEBUG("Assigning position %d to value '%d'", position, value);
     m_params[position] = std::to_string(value);
+    m_formats[position] = 0;
 }
 void PostgreSQL::PrepareFloat(int32_t position, float value)
 {
     LOG_DEBUG("Assigning position %d to value '%f'", position, value);
     m_params[position] = std::to_string(value);
+    m_formats[position] = 0;
 }
 void PostgreSQL::PrepareString(int32_t position, const std::string& value)
 {
     LOG_DEBUG("Assigning position %d to value '%s'", position, value);
     m_params[position] = value;
+    m_formats[position] = 0;
+}
+
+void PostgreSQL::PrepareBinary(int32_t position, const std::vector<uint8_t> &value)
+{
+    LOG_DEBUG("Assigning position %d to value '%s'", position, value.data());
+    m_params[position] = std::string(value.begin(), value.end());
+    m_lengths[position] = value.size();
+    m_formats[position] = 1;
+}
+void PostgreSQL::PrepareNULL(int32_t position)
+{
+    LOG_DEBUG("Assigning position %d to value NULL", position);
+    m_params[position] = std::nullopt;
+    m_formats[position] = 0;
 }
 
 int PostgreSQL::GetAffectedRows()
@@ -260,8 +335,10 @@ void PostgreSQL::DestroyPreparedQuery()
     // No way or need to deallocate the anonymous prepared statement in PgSQL.
 
     // Force deallocation
-    std::vector<std::string>().swap(m_params);
+    std::vector<std::optional<std::string>>().swap(m_params);
     m_paramCount = 0;
+
+    s_nextQueryBinaryResults = false;
 }
 
 }

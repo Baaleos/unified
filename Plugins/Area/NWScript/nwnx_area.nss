@@ -2,7 +2,6 @@
 /// @brief Functions exposing additional area properties as well as creating transitions.
 /// @{
 /// @file nwnx_area.nss
-#include "nwnx"
 
 const string NWNX_Area = "NWNX_Area"; ///< @private
 
@@ -40,6 +39,25 @@ const int NWNX_AREA_COLOR_TYPE_SUN_AMBIENT          = 2;
 const int NWNX_AREA_COLOR_TYPE_SUN_DIFFUSE          = 3;
 /// @}
 
+/// @brief A tile info struct
+struct NWNX_Area_TileInfo
+{
+    int nID; ///< The tile's ID
+    int nHeight; ///< The tile's height
+    int nOrientation; ///< The tile's orientation
+    int nGridX; ///< The tile's grid x position
+    int nGridY; ///< The tile's grid y position
+};
+
+/// @brief Area wind info struct
+struct NWNX_Area_AreaWind
+{
+    vector vDirection; ///< Wind's direction
+    float fMagnitude; ///< Wind's magnitude
+    float fYaw; ///< Wind's yaw
+    float fPitch; ///< Wind's pitch
+};
+
 /// @brief Gets the number of players in area.
 /// @param area The area object.
 /// @return The player count for the area.
@@ -75,7 +93,7 @@ int NWNX_Area_GetAreaSpotModifier(object area);
 /// @sa NWNX_SkillRanks_SetAreaModifier() to change any skill modifier.
 void NWNX_Area_SetAreaSpotModifier(object area, int spotModifier);
 
-/// @brief Get the listen modifer of area
+/// @brief Get the listen modifier of area
 /// @param area The area object.
 /// @return The value of the Listen skill modifier for this area.
 int NWNX_Area_GetAreaListenModifier(object area);
@@ -223,328 +241,507 @@ int NWNX_Area_GetMusicIsPlaying(object oArea, int bBattleMusic = FALSE);
 /// @sa NWNX_Object_SetTriggerGeometry() if you wish to draw the trigger as something other than a square.
 object NWNX_Area_CreateGenericTrigger(object oArea, float fX, float fY, float fZ, string sTag = "", float fSize = 1.0f);
 
+/// @brief Add oObject to the ExportGIT exclusion list, objects on this list won't be exported when NWNX_Area_ExportGIT() is called.
+/// @param oObject The object to add
+void NWNX_Area_AddObjectToExclusionList(object oObject);
+
+/// @brief Remove oObject from the ExportGIT exclusion list.
+/// @param oObject The object to add
+void NWNX_Area_RemoveObjectFromExclusionList(object oObject);
+
+/// @brief Export the .git file of oArea to the UserDirectory/nwnx folder, or to the location of sAlias.
+/// @note Take care with local objects set on objects, they will likely not reference the same object after a server restart.
+/// @param oArea The area to export the .git file of.
+/// @param sFileName The filename, 16 characters or less and should be lowercase. If left blank the resref of oArea will be used.
+/// @param bExportVarTable If TRUE, local variables set on oArea will be exported too.
+/// @param bExportUUID If TRUE, the UUID of oArea will be exported, if it has one.
+/// @param nObjectFilter One or more OBJECT_TYPE_* constants. These object will not be exported. For example OBJECT_TYPE_CREATURE | OBJECT_TYPE_DOOR
+/// will not export creatures and doors. Use OBJECT_TYPE_ALL to filter all objects or 0 to export all objects.
+/// @param sAlias The alias of the resource directory to add the .git file to. Default: UserDirectory/nwnx
+/// @return TRUE if exported successfully, FALSE if not.
+int NWNX_Area_ExportGIT(object oArea, string sFileName = "", int bExportVarTable = TRUE, int bExportUUID = TRUE, int nObjectFilter = 0, string sAlias = "NWNX");
+
+/// @brief Get the tile info of the tile at [fTileX, fTileY] in oArea.
+/// @param oArea The area name.
+/// @param fTileX, fTileY The coordinates of the tile.
+/// @return A NWNX_Area_TileInfo struct with tile info.
+struct NWNX_Area_TileInfo NWNX_Area_GetTileInfo(object oArea, float fTileX, float fTileY);
+
+/// @brief Export the .are file of oArea to the UserDirectory/nwnx folder, or to the location of sAlias.
+/// @param oArea The area to export the .are file of.
+/// @param sFileName The filename, 16 characters or less and should be lowercase. This will also be the resref of the area.
+/// @param sNewName Optional new name of the area. Leave blank to use the current name.
+/// @param sNewTag Optional new tag of the area. Leave blank to use the current tag.
+/// @param sAlias The alias of the resource directory to add the .are file to. Default: UserDirectory/nwnx
+/// @return TRUE if exported successfully, FALSE if not.
+int NWNX_Area_ExportARE(object oArea, string sFileName, string sNewName = "", string sNewTag = "", string sAlias = "NWNX");
+
+/// @brief Get the ambient sound playing in an area during the day.
+/// @param oArea The area to get the sound of.
+/// @return The ambient soundtrack. See ambientsound.2da.
+int NWNX_Area_GetAmbientSoundDay(object oArea);
+
+/// @brief Get the ambient sound playing in an area during the night.
+/// @param oArea The area to get the sound of.
+/// @return The ambient soundtrack. See ambientsound.2da.
+int NWNX_Area_GetAmbientSoundNight(object oArea);
+
+/// @brief Get the volume of the ambient sound playing in an area during the day.
+/// @param oArea The area to get the sound volume of.
+/// @return The volume.
+int NWNX_Area_GetAmbientSoundDayVolume(object oArea);
+
+/// @brief Get the volume of the ambient sound playing in an area during the night.
+/// @param oArea The area to get the sound volume of.
+/// @return The volume.
+int NWNX_Area_GetAmbientSoundNightVolume(object oArea);
+
+/// @brief Create a sound object.
+/// @param oArea The area where to create the sound object.
+/// @param vPosition The area position where to create the sound object.
+/// @param sResRef The ResRef of the sound object.
+/// @return The sound object.
+object NWNX_Area_CreateSoundObject(object oArea, vector vPosition, string sResRef);
+
+/// @brief Rotates an existing area, including all objects within (excluding PCs).
+/// @note Functions while clients are in the area, but not recommended as tiles/walkmesh only updates on area load, and this may result in unexpected clientside results.
+/// @param oArea The area to be rotated
+/// @param nRotation How many 90 degrees clockwise to rotate (1-3).
+void NWNX_Area_RotateArea(object oArea, int nRotation);
+
+/// @brief Get the tile info of the tile at nIndex in the tile array.
+/// @param oArea The area.
+/// @param nIndex The index of the tile.
+/// @return A NWNX_Area_TileInfo struct with tile info.
+struct NWNX_Area_TileInfo NWNX_Area_GetTileInfoByTileIndex(object oArea, int nIndex);
+
+/// @brief Check if there is a path between two positions in an area.
+/// @note Does not care about doors or placeables, only checks tile path nodes.
+/// @param oArea The area.
+/// @param vStartPosition The start position.
+/// @param vEndPosition The end position.
+/// @param nMaxDepth The max depth of the DFS tree. A good value is AreaWidth * AreaHeight.
+/// @return TRUE if there is a path between vStartPosition and vEndPosition, FALSE if not or on error.
+int NWNX_Area_GetPathExists(object oArea, vector vStartPosition, vector vEndPosition, int nMaxDepth);
+
+/// @brief Get oArea's flags, interior/underground etc.
+/// @param oArea The area.
+/// @return The raw flags bitmask or -1 on error.
+int NWNX_Area_GetAreaFlags(object oArea);
+
+/// @brief Set oArea's raw flags bitmask.
+/// @note You'll have to do any bitwise operations yourself.
+/// @note Requires clients to reload the area to get any updated flags.
+/// @param oArea The area.
+/// @param nFlags The flags.
+void NWNX_Area_SetAreaFlags(object oArea, int nFlags);
+
+/// @brief Get oArea's detailed win data.
+/// @note vDirection returns [0.0, 0.0, 0.0] if not set previously with SetAreaWind nwscript function.
+/// @param oArea The area.
+struct NWNX_Area_AreaWind NWNX_Area_GetAreaWind(object oArea);
+
+/// @brief Set the default discoverability mask for objects in an area.
+/// @param oArea The area or OBJECT_INVALID to set a global mask for all areas. Per area masks will override the global mask.
+/// @param nObjectTypes A mask of OBJECT_TYPE_* constants or OBJECT_TYPE_ALL for all suitable object types. Currently only works on Creatures, Doors (Hilite only), Items and Usable Placeables.
+/// @param nMask A mask of OBJECT_UI_DISCOVERY_*
+/// @param bForceUpdate If TRUE, will update the discovery mask of ALL objects in the area or module(if oArea == OBJECT_INVALID), according to the current mask. Use with care.
+void NWNX_Area_SetDefaultObjectUiDiscoveryMask(object oArea, int nObjectTypes, int nMask, int bForceUpdate = FALSE);
+
 /// @}
 
 int NWNX_Area_GetNumberOfPlayersInArea(object area)
 {
-    string sFunc = "GetNumberOfPlayersInArea";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetNumberOfPlayersInArea");
+    return NWNXPopInt();
 }
 
 object NWNX_Area_GetLastEntered(object area)
 {
-    string sFunc = "GetLastEntered";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueObject(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetLastEntered");
+    return NWNXPopObject();
 }
 
 object NWNX_Area_GetLastLeft(object area)
 {
-    string sFunc = "GetLastLeft";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueObject(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetLastLeft");
+    return NWNXPopObject();
 }
 
 int NWNX_Area_GetPVPSetting(object area)
 {
-    string sFunc = "GetPVPSetting";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetPVPSetting");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetPVPSetting(object area, int pvpSetting)
 {
-    string sFunc = "SetPVPSetting";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, pvpSetting);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(pvpSetting);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetPVPSetting");
 }
 
 int NWNX_Area_GetAreaSpotModifier(object area)
 {
-    string sFunc = "GetAreaSpotModifier";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetAreaSpotModifier");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetAreaSpotModifier(object area, int spotModifier)
 {
-    string sFunc = "SetAreaSpotModifier";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, spotModifier);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(spotModifier);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetAreaSpotModifier");
 }
 
 int NWNX_Area_GetAreaListenModifier(object area)
 {
-    string sFunc = "GetAreaListenModifier";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetAreaListenModifier");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetAreaListenModifier(object area, int listenModifier)
 {
-    string sFunc = "SetAreaListenModifier";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, listenModifier);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(listenModifier);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetAreaListenModifier");
 }
 
 int NWNX_Area_GetNoRestingAllowed(object area)
 {
-    string sFunc = "GetNoRestingAllowed";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetNoRestingAllowed");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetNoRestingAllowed(object area, int bNoRestingAllowed)
 {
-    string sFunc = "SetNoRestingAllowed";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, bNoRestingAllowed);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(bNoRestingAllowed);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetNoRestingAllowed");
 }
 
 int NWNX_Area_GetWindPower(object area)
 {
-    string sFunc = "GetWindPower";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetWindPower");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetWindPower(object area, int windPower)
 {
-    string sFunc = "SetWindPower";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, windPower);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(windPower);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetWindPower");
 }
 
 int NWNX_Area_GetWeatherChance(object area, int type)
 {
-    string sFunc = "GetWeatherChance";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, type);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushInt(type);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetWeatherChance");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetWeatherChance(object area, int type, int chance)
 {
-    string sFunc = "SetWeatherChance";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, chance);
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, type);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(chance);
+    NWNXPushInt(type);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetWeatherChance");
 }
 
 float NWNX_Area_GetFogClipDistance(object area)
 {
-    string sFunc = "GetFogClipDistance";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueFloat(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetFogClipDistance");
+    return NWNXPopFloat();
 }
 
 void NWNX_Area_SetFogClipDistance(object area, float distance)
 {
-    string sFunc = "SetFogClipDistance";
-
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, distance);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushFloat(distance);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetFogClipDistance");
 }
 
 int NWNX_Area_GetShadowOpacity(object area)
 {
-    string sFunc = "GetShadowOpacity";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetShadowOpacity");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetShadowOpacity(object area, int shadowOpacity)
 {
-    string sFunc = "SetShadowOpacity";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, shadowOpacity);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(shadowOpacity);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetShadowOpacity");
 }
 
 
 int NWNX_Area_GetDayNightCycle(object area)
 {
-    string sFunc = "GetDayNightCycle";
-
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetDayNightCycle");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetDayNightCycle(object area, int type)
 {
-    string sFunc = "SetDayNightCycle";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, type);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(type);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetDayNightCycle");
 }
 
 int NWNX_Area_GetSunMoonColors(object area, int type)
 {
-    string sFunc = "GetSunMoonColors";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, type);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushInt(type);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "GetSunMoonColors");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetSunMoonColors(object area, int type, int color)
 {
-    string sFunc = "SetSunMoonColors";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, color);
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, type);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(color);
+    NWNXPushInt(type);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "SetSunMoonColors");
 }
 
 object NWNX_Area_CreateTransition(object area, object target, float x, float y, float z, float size = 2.0f, string tag="")
 {
-    string sFunc = "CreateTransition";
-
-    NWNX_PushArgumentString(NWNX_Area, sFunc, tag);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, size);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, z);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, y);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, x);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, target);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, area);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueObject(NWNX_Area, sFunc);
+    NWNXPushString(tag);
+    NWNXPushFloat(size);
+    NWNXPushFloat(z);
+    NWNXPushFloat(y);
+    NWNXPushFloat(x);
+    NWNXPushObject(target);
+    NWNXPushObject(area);
+    NWNXCall(NWNX_Area, "CreateTransition");
+    return NWNXPopObject();
 }
 
 int NWNX_Area_GetTileAnimationLoop(object oArea, float fTileX, float fTileY, int nAnimLoop)
 {
-    string sFunc = "GetTileAnimationLoop";
+    NWNXPushInt(nAnimLoop);
+    NWNXPushFloat(fTileY);
+    NWNXPushFloat(fTileX);
+    NWNXPushObject(oArea);
 
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, nAnimLoop);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileX);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXCall(NWNX_Area, "GetTileAnimationLoop");
+    return NWNXPopInt();
 }
 
 void NWNX_Area_SetTileAnimationLoop(object oArea, float fTileX, float fTileY, int nAnimLoop, int bEnabled)
 {
-    string sFunc = "SetTileAnimationLoop";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, bEnabled);
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, nAnimLoop);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileX);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-
-    NWNX_CallFunction(NWNX_Area, sFunc);
+    NWNXPushInt(bEnabled);
+    NWNXPushInt(nAnimLoop);
+    NWNXPushFloat(fTileY);
+    NWNXPushFloat(fTileX);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "SetTileAnimationLoop");
 }
 
 string NWNX_Area_GetTileModelResRef(object oArea, float fTileX, float fTileY)
 {
-    string sFunc = "GetTileModelResRef";
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fTileX);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueString(NWNX_Area, sFunc);
+    NWNXPushFloat(fTileY);
+    NWNXPushFloat(fTileX);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetTileModelResRef");
+    return NWNXPopString();
 }
 
 int NWNX_Area_TestDirectLine(object oArea, float fStartX, float fStartY, float fEndX, float fEndY, float fPerSpace, float fHeight, int bIgnoreDoors=FALSE)
 {
-    string sFunc = "TestDirectLine";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, bIgnoreDoors);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fHeight);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fPerSpace);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fEndY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fEndX);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fStartY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fStartX);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushInt(bIgnoreDoors);
+    NWNXPushFloat(fHeight);
+    NWNXPushFloat(fPerSpace);
+    NWNXPushFloat(fEndY);
+    NWNXPushFloat(fEndX);
+    NWNXPushFloat(fStartY);
+    NWNXPushFloat(fStartX);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "TestDirectLine");
+    return NWNXPopInt();
 }
 
 int NWNX_Area_GetMusicIsPlaying(object oArea, int bBattleMusic = FALSE)
 {
-    string sFunc = "GetMusicIsPlaying";
-
-    NWNX_PushArgumentInt(NWNX_Area, sFunc, bBattleMusic);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-    NWNX_CallFunction(NWNX_Area, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Area, sFunc);
+    NWNXPushInt(bBattleMusic);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetMusicIsPlaying");
+    return NWNXPopInt();
 }
 
 object NWNX_Area_CreateGenericTrigger(object oArea, float fX, float fY, float fZ, string sTag = "", float fSize = 1.0f)
 {
-    string sFunc = "CreateGenericTrigger";
+    NWNXPushFloat(fSize);
+    NWNXPushString(sTag);
+    NWNXPushFloat(fZ);
+    NWNXPushFloat(fY);
+    NWNXPushFloat(fX);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "CreateGenericTrigger");
+    return NWNXPopObject();
+}
 
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fSize);
-    NWNX_PushArgumentString(NWNX_Area, sFunc, sTag);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fZ);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fY);
-    NWNX_PushArgumentFloat(NWNX_Area, sFunc, fX);
-    NWNX_PushArgumentObject(NWNX_Area, sFunc, oArea);
-    NWNX_CallFunction(NWNX_Area, sFunc);
+void NWNX_Area_AddObjectToExclusionList(object oObject)
+{
+    NWNXPushObject(oObject);
+    NWNXCall(NWNX_Area, "AddObjectToExclusionList");
+}
 
-    return NWNX_GetReturnValueObject(NWNX_Area, sFunc);
+void NWNX_Area_RemoveObjectFromExclusionList(object oObject)
+{
+    NWNXPushObject(oObject);
+    NWNXCall(NWNX_Area, "RemoveObjectFromExclusionList");
+}
+
+int NWNX_Area_ExportGIT(object oArea, string sFileName = "", int bExportVarTable = TRUE, int bExportUUID = TRUE, int nObjectFilter = 0, string sAlias = "NWNX")
+{
+    NWNXPushString(sAlias);
+    NWNXPushInt(nObjectFilter);
+    NWNXPushInt(bExportUUID);
+    NWNXPushInt(bExportVarTable);
+    NWNXPushString(sFileName);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "ExportGIT");
+    return NWNXPopInt();
+}
+
+struct NWNX_Area_TileInfo NWNX_Area_GetTileInfo(object oArea, float fTileX, float fTileY)
+{
+    NWNXPushFloat(fTileY);
+    NWNXPushFloat(fTileX);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetTileInfo");
+    struct NWNX_Area_TileInfo str;
+    str.nGridY = NWNXPopInt();
+    str.nGridX = NWNXPopInt();
+    str.nOrientation = NWNXPopInt();
+    str.nHeight = NWNXPopInt();
+    str.nID = NWNXPopInt();
+    return str;
+}
+
+int NWNX_Area_ExportARE(object oArea, string sFileName, string sNewName = "", string sNewTag = "", string sAlias = "NWNX")
+{
+    NWNXPushString(sAlias);
+    NWNXPushString(sNewTag);
+    NWNXPushString(sNewName);
+    NWNXPushString(sFileName);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "ExportARE");
+    return NWNXPopInt();
+}
+
+int NWNX_Area_GetAmbientSoundDay(object oArea)
+{
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAmbientSoundDay");
+    return NWNXPopInt();
+}
+
+int NWNX_Area_GetAmbientSoundNight(object oArea)
+{
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAmbientSoundNight");
+    return NWNXPopInt();
+}
+
+int NWNX_Area_GetAmbientSoundDayVolume(object oArea)
+{
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAmbientSoundDayVolume");
+    return NWNXPopInt();
+}
+
+int NWNX_Area_GetAmbientSoundNightVolume(object oArea)
+{
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAmbientSoundNightVolume");
+    return NWNXPopInt();
+}
+
+object NWNX_Area_CreateSoundObject(object oArea, vector vPosition, string sResRef)
+{
+    NWNXPushString(sResRef);
+    NWNXPushVector(vPosition);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "CreateSoundObject");
+    return NWNXPopObject();
+}
+
+void NWNX_Area_RotateArea(object oArea, int nRotation)
+{
+    NWNXPushInt(nRotation);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "RotateArea");
+}
+
+struct NWNX_Area_TileInfo NWNX_Area_GetTileInfoByTileIndex(object oArea, int nIndex)
+{
+    NWNXPushInt(nIndex);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetTileInfoByTileIndex");
+    struct NWNX_Area_TileInfo str;
+    str.nGridY = NWNXPopInt();
+    str.nGridX = NWNXPopInt();
+    str.nOrientation = NWNXPopInt();
+    str.nHeight = NWNXPopInt();
+    str.nID = NWNXPopInt();
+    return str;
+}
+
+int NWNX_Area_GetPathExists(object oArea, vector vStartPosition, vector vEndPosition, int nMaxDepth)
+{
+    NWNXPushInt(nMaxDepth);
+    NWNXPushVector(vEndPosition);
+    NWNXPushVector(vStartPosition);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetPathExists");
+    return NWNXPopInt();
+}
+
+int NWNX_Area_GetAreaFlags(object oArea)
+{
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAreaFlags");
+    return NWNXPopInt();
+}
+
+void NWNX_Area_SetAreaFlags(object oArea, int nFlags)
+{
+    NWNXPushInt(nFlags);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "SetAreaFlags");
+}
+
+struct NWNX_Area_AreaWind NWNX_Area_GetAreaWind(object oArea)
+{
+    struct NWNX_Area_AreaWind data;
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "GetAreaWind");
+    data.fPitch = NWNXPopFloat();
+    data.fYaw = NWNXPopFloat();
+    data.fMagnitude = NWNXPopFloat();
+    data.vDirection = NWNXPopVector();
+    return data;
+}
+
+void NWNX_Area_SetDefaultObjectUiDiscoveryMask(object oArea, int nObjectTypes, int nMask, int bForceUpdate = FALSE)
+{
+    NWNXPushInt(bForceUpdate);
+    NWNXPushInt(nMask);
+    NWNXPushInt(nObjectTypes);
+    NWNXPushObject(oArea);
+    NWNXCall(NWNX_Area, "SetDefaultObjectUiDiscoveryMask");
 }

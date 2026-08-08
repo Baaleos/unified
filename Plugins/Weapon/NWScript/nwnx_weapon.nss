@@ -2,7 +2,6 @@
 /// @brief Functions exposing additional weapon properties.
 /// @{
 /// @file nwnx_weapon.nss
-#include "nwnx"
 
 const string NWNX_Weapon = "NWNX_Weapon"; ///< @private
 
@@ -94,6 +93,7 @@ void NWNX_Weapon_SetGreaterWeaponFocusFeat(int nBaseItem, int nFeat);
 
 /// @brief Set base item as monk weapon.
 /// @param nBaseItem The base item id.
+/// @deprecated Use baseitems.2da. This will be removed in future NWNX releases.
 void NWNX_Weapon_SetWeaponIsMonkWeapon(int nBaseItem);
 
 /// @brief Set plugin options.
@@ -114,187 +114,175 @@ struct NWNX_Weapon_DevastatingCriticalEvent_Data NWNX_Weapon_GetDevastatingCriti
 /// @note This is only for use with the Devastating Critical Event Script.
 void NWNX_Weapon_BypassDevastatingCritical();
 
+/// @brief Sets weapon to gain .5 strength bonus.
+/// @param oWeapon Should be a melee weapon.
+/// @param nEnable TRUE for bonus. FALSE to turn off bonus.
+/// @param bPersist whether the two hand state should persist to the gff file.
+void NWNX_Weapon_SetOneHalfStrength(object oWeapon, int nEnable, int bPersist = FALSE);
+
+/// @brief Gets if the weapon is set to gain addition .5 strength bonus
+/// @param oWeapon the weapon
+/// @return FALSE/0 if weapon is not receiving the bonus. TRUE/1 if it does.
+int NWNX_Weapon_GetOneHalfStrength(object oWeapon);
+
+/// @brief Override the max attack distance of ranged weapons.
+/// @param nBaseItem The baseitem id.
+/// @param fMax The maximum attack distance. Default is 40.0f.
+/// @param fMaxPassive The maximum passive attack distance. Default is 20.0f. Seems to be used by the engine to determine a new nearby target when needed.
+/// @param fPreferred The preferred attack distance. See the PrefAttackDist column in baseitems.2da, default seems to be 30.0f for ranged weapons.
+/// @note fMaxPassive should probably be lower than fMax, half of fMax seems to be a good start. fPreferred should be at least ~0.5f lower than fMax.
+void NWNX_Weapon_SetMaxRangedAttackDistanceOverride(int nBaseItem, float fMax, float fMaxPassive, float fPreferred);
+
 /// @}
 
 void NWNX_Weapon_SetWeaponFocusFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetWeaponFocusFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponFocusFeat");
 }
 
 void NWNX_Weapon_SetEpicWeaponFocusFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetEpicWeaponFocusFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetEpicWeaponFocusFeat");
 }
 
 void NWNX_Weapon_SetGreaterWeaponFocusFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetGreaterWeaponFocusFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetGreaterWeaponFocusFeat");
 }
 
 void NWNX_Weapon_SetWeaponFinesseSize(int nBaseItem, int nSize)
 {
-    string sFunc = "SetWeaponFinesseSize";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nSize);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nSize);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponFinesseSize");
 }
 
 int NWNX_Weapon_GetWeaponFinesseSize(int nBaseItem)
 {
-    string sFunc = "GetWeaponFinesseSize";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
-
-    return NWNX_GetReturnValueInt(NWNX_Weapon, sFunc);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "GetWeaponFinesseSize");
+    return NWNXPopInt();
 }
 
 void NWNX_Weapon_SetWeaponUnarmed(int nBaseItem)
 {
-    string sFunc = "SetWeaponUnarmed";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponUnarmed");
 }
 
 void NWNX_Weapon_SetWeaponIsMonkWeapon(int nBaseItem)
 {
-    string sFunc = "SetWeaponIsMonkWeapon";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    WriteTimestampedLogEntry("NWNX_Weapon_SetWeaponIsMonkWeapon() is deprecated. Please use baseitems.2da instead.");
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponIsMonkWeapon");
 }
 
 void NWNX_Weapon_SetWeaponImprovedCriticalFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetWeaponImprovedCriticalFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponImprovedCriticalFeat");
 }
 
 void NWNX_Weapon_SetWeaponSpecializationFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetWeaponSpecializationFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponSpecializationFeat");
 }
 
 void NWNX_Weapon_SetGreaterWeaponSpecializationFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetGreaterWeaponSpecializationFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetGreaterWeaponSpecializationFeat");
 }
 
 void NWNX_Weapon_SetEpicWeaponSpecializationFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetEpicWeaponSpecializationFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetEpicWeaponSpecializationFeat");
 }
 
 void NWNX_Weapon_SetEpicWeaponOverwhelmingCriticalFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetEpicWeaponOverwhelmingCriticalFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetEpicWeaponOverwhelmingCriticalFeat");
 }
 
 void NWNX_Weapon_SetEpicWeaponDevastatingCriticalFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetEpicWeaponDevastatingCriticalFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetEpicWeaponDevastatingCriticalFeat");
 }
 
 void NWNX_Weapon_SetWeaponOfChoiceFeat(int nBaseItem, int nFeat)
 {
-    string sFunc = "SetWeaponOfChoiceFeat";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nFeat);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nBaseItem);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nFeat);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetWeaponOfChoiceFeat");
 }
 
 void NWNX_Weapon_SetOption(int nOption, int nVal)
 {
-    string sFunc = "SetOption";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nVal);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, nOption);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(nVal);
+    NWNXPushInt(nOption);
+    NWNXCall(NWNX_Weapon, "SetOption");
 }
 
 void NWNX_Weapon_SetDevastatingCriticalEventScript(string sScript)
 {
-    string sFunc = "SetDevastatingCriticalEventScript";
-
-    NWNX_PushArgumentString(NWNX_Weapon, sFunc, sScript);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushString(sScript);
+    NWNXCall(NWNX_Weapon, "SetDevastatingCriticalEventScript");
 }
 
 void NWNX_Weapon_BypassDevastatingCritical()
 {
-    string sFunc = "SetEventData";
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, 1);
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, NWNX_WEAPON_SETDATA_DC_BYPASS);
-
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
+    NWNXPushInt(1);
+    NWNXPushInt(NWNX_WEAPON_SETDATA_DC_BYPASS);
+    NWNXCall(NWNX_Weapon, "SetEventData");
 }
 
 struct NWNX_Weapon_DevastatingCriticalEvent_Data NWNX_Weapon_GetDevastatingCriticalEventData()
 {
-    string sFunc = "GetEventData";
     struct NWNX_Weapon_DevastatingCriticalEvent_Data data;
-
-    NWNX_PushArgumentInt(NWNX_Weapon, sFunc, NWNX_WEAPON_GETDATA_DC);
-    NWNX_CallFunction(NWNX_Weapon, sFunc);
-
-    data.oWeapon = NWNX_GetReturnValueObject(NWNX_Weapon, sFunc);
-    data.oTarget = NWNX_GetReturnValueObject(NWNX_Weapon, sFunc);
-    data.nDamage = NWNX_GetReturnValueInt(NWNX_Weapon, sFunc);
-
+    NWNXPushInt(NWNX_WEAPON_GETDATA_DC);
+    NWNXCall(NWNX_Weapon, "GetEventData");
+    data.oWeapon = NWNXPopObject();
+    data.oTarget = NWNXPopObject();
+    data.nDamage = NWNXPopInt();
     return data;
+}
+
+void NWNX_Weapon_SetOneHalfStrength(object oWeapon, int nEnable, int bPersist = FALSE)
+{
+    NWNXPushInt(bPersist);
+    NWNXPushInt(nEnable);
+    NWNXPushObject(oWeapon);
+    NWNXCall(NWNX_Weapon, "SetOneHalfStrength");
+}
+
+int NWNX_Weapon_GetOneHalfStrength(object oWeapon)
+{
+    NWNXPushObject(oWeapon);
+    NWNXCall(NWNX_Weapon, "GetOneHalfStrength");
+    return NWNXPopInt();
+}
+
+void NWNX_Weapon_SetMaxRangedAttackDistanceOverride(int nBaseItem, float fMax, float fMaxPassive, float fPreferred)
+{
+    NWNXPushFloat(fPreferred);
+    NWNXPushFloat(fMaxPassive);
+    NWNXPushFloat(fMax);
+    NWNXPushInt(nBaseItem);
+    NWNXCall(NWNX_Weapon, "SetMaxRangedAttackDistanceOverride");
 }

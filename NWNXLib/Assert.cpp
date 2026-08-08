@@ -1,5 +1,4 @@
-#include "Assert.hpp"
-#include "Platform/Debug.hpp"
+#include "nwnx.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -8,22 +7,10 @@
 #include <execinfo.h>
 #include <signal.h>
 
-namespace NWNXLib {
+namespace NWNXLib::Assert {
 
-namespace Assert {
 
-#if TAR_DEBUG && !TAR_RELEASE
-static bool crashOnFailure = true;
-#else
-static bool crashOnFailure = false;
-#endif
-
-void SetCrashOnFailure(bool crash)
-{
-    crashOnFailure = crash;
-}
-
-void Fail(const char* condition, const char* file, int line, const char* message)
+void FailInternal(const char* condition, const char* file, int line, const char* message)
 {
     char buffer[64*1024];
 
@@ -42,24 +29,17 @@ void Fail(const char* condition, const char* file, int line, const char* message
         std::strncat(buffer, message, sizeof(buffer)-1);
     }
 
-    std::strncat(buffer, Platform::Debug::GetStackTrace(20).c_str(), sizeof(buffer)-1);
-    std::fputs(buffer, stderr);
-    std::fflush(stderr);
+    std::string stackTrace = Platform::GetStackTrace(20);
+    MessageBus::Broadcast("NWNX_ASSERT_FAIL", { buffer, stackTrace });
+    std::strncat(buffer, stackTrace.c_str(), sizeof(buffer)-1);
+    std::fputs(buffer, stdout);
+    std::fflush(stdout);
+    NWNXLib::Log::WriteToLogFile(buffer);
 
-    bool skipCrash = !crashOnFailure;
-    bool skipBreak = !Platform::Debug::IsDebuggerPresent();
-
-    if (!skipBreak)
+    if (Platform::IsDebuggerPresent())
     {
         raise(SIGTRAP);
     }
-
-    if (!skipCrash)
-    {
-        std::abort();
-    }
-}
-
 }
 
 }

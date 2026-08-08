@@ -15,3 +15,9 @@ The following environmental variable is required to load the plugin:
 | Variable Name | Value | Notes |
 | -------------   | :----: | ------------------------------------ |
 | `NWNX_EXPERIMENTAL_SUPPRESS_PLAYER_LOGIN_INFO` | true/false | Suppresses the playerlist and player login/logout messages for all players except DMs. This functionality is not compatible with NWNX_Rename. |
+| `NWNX_EXPERIMENTAL_ADJUST_REPUTATION_FIX` | true/false | Attempts to correct a crash involving faction/reputations. |
+| `NWNX_EXPERIMENTAL_DISABLE_LEVELUP_VALIDATION` | true/false | Disable LevelUp Validation |
+| `NWNX_EXPERIMENTAL_UNHARDCODE_RANGER_DUALWIELD` | true/false | Removes the hardcoded effects of the Ranger's Dual-wield feat. |
+| `NWNX_EXPERIMENTAL_IGNORE_MODULE_VERSION` | true/false | Ignore the module's version when loading. |
+| `NWNX_EXPERIMENTAL_END_COMBATROUND_AFTER_SPELLCAST` | true/false | Combat rounds end immediately a spell cast making it possible to cast another spell right after |
+| `NWNX_EXPERIMENTAL_UFM_HOTFIX` | true/false | Attemps to resolve a server hang in CNetLayerWindow::UnpacketizeFullMessages. |

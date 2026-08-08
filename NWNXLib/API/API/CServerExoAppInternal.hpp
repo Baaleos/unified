@@ -1,12 +1,10 @@
 #pragma once
 #include "nwn_api.hpp"
 
-#include "AurList.hpp"
 #include "CExoArrayList.hpp"
-#include "CExoLinkedList.hpp"
 #include "CExoString.hpp"
-#include "CNWSClient.hpp"
 #include "CResRef.hpp"
+#include "NWSyncAdvertisement.hpp"
 
 
 #ifdef NWN_API_PROLOGUE
@@ -28,22 +26,27 @@ struct CNWSEncounter;
 struct CNWSItem;
 struct CNWSMessage;
 struct CNWSModule;
+struct CNWSObject;
 struct CNWSPlaceable;
 struct CNWSPlayer;
 struct CNWSSoundObject;
 struct CNWSStore;
 struct CNWSTrigger;
 struct CNWSWaypoint;
-struct CNWVirtualMachineCommands;
+struct CNWSVirtualMachineCommands;
 struct CNetLayer;
 struct CServerAIMaster;
 struct CServerInfo;
 struct CWorldTimer;
-struct SSubNetProfile;
 
+namespace NWSync {
+struct Advertisement; // NWSyncAdvertisement
+}
+struct AdvertLUT {
+    std::unordered_map<CExoString, std::vector<void*>> m_map;
+};
 
 typedef int BOOL;
-typedef CExoLinkedListNode * CExoLinkedListPosition;
 typedef uint32_t OBJECT_ID;
 typedef uint16_t RESTYPE;
 typedef uint32_t STRREF;
@@ -53,11 +56,11 @@ struct CServerExoAppInternal
 {
     uint8_t ScratchMessageBuffer[65536];
     BOOL m_bMultiplayerEnabled;
-    BOOL m_bGameSpyEnabled;
+    BOOL m_bGamePostedToInternet;
     BOOL m_bCDResponseReceived;
     CServerInfo * m_pServerInfo;
     int16_t m_nServerMode;
-    CNWVirtualMachineCommands * m_pVirtualMachineCommandImplementer;
+    CNWSVirtualMachineCommands * m_pVirtualMachineCommandImplementer;
     CNWSMessage * m_pMessage;
     BOOL m_bForceUpdate;
     uint32_t * m_pPendingAuthorization;
@@ -79,12 +82,11 @@ struct CServerExoAppInternal
     CCampaignDB * m_pCampaignDB;
     CGameObjectArray * m_pGameObjArray;
     OBJECT_ID m_oidModule;
-    CExoLinkedList<CNWSClient> * m_pNWSPlayerList;
-    CExoLinkedList<CNWSClient> * m_pNWSSysAdminList;
+    CExoArrayList<CNWSPlayer*> m_lstPlayerList;
     CNWPlaceMeshManager * m_pPlaceMeshManager;
     BOOL m_bDebugMode;
-    AurList<OBJECT_ID> * m_lstPauseExclusionList;
-    AurList<OBJECT_ID> * m_lstTimestopExclusionList;
+    CExoArrayList<OBJECT_ID> * m_lstPauseExclusionList;
+    CExoArrayList<OBJECT_ID> * m_lstTimestopExclusionList;
     uint8_t m_nPauseState;
     BOOL m_bDoingStartNewModule;
     BOOL m_bMoveToModulePending;
@@ -99,26 +101,20 @@ struct CServerExoAppInternal
     CExoArrayList<OBJECT_ID> m_exportPlayerCharacterRequests;
     BOOL m_bNeedSinglePlayerCharacter;
     uint32_t m_nEstimatedSaveSize;
-    uint64_t m_nLogHeartbeatTimer;
-    uint64_t m_nLogHeartbeatTimeStamp;
     CExoArrayList<uint32_t> m_nCharListRequests;
     CExoArrayList<CExoString> m_lstBannedListIP;
     CExoArrayList<CExoString> m_lstBannedListCDKey;
     CExoArrayList<CExoString> m_lstBannedListPlayerName;
     C2DA * m_pOldServerVault2DA;
     C2DA * m_pKnownServerNames2DA;
-    uint16_t m_nBannedListsTimeStampSecond;
-    uint16_t m_nBannedListsTimeStampMinute;
-    uint16_t m_nBannedListsTimeStampHour;
     uint32_t m_nBannedListsTimeStamp;
-    CExoLinkedListPosition m_posPCObject;
+    int32_t m_nPosPCObject;
+    int m_nGameObjectUpdateIntervalTarget;
+    int m_nGameObjectUpdateIntervalTargetLoading;
+    int m_nGameObjectUpdateMessageLimit;
+    int m_nGameObjectUpdateMessageLimitLoading;
+    uint64_t m_nLastGameObjectUpdateDuration = 0;
     uint64_t m_nAutoSaveTimer;
-    CExoArrayList<SSubNetProfile *> m_acSubNetProfiles;
-    uint64_t m_nTotalSubNetSent;
-    uint64_t m_nTotalSubNetRecv;
-    uint64_t m_nServerStartupTime;
-    BOOL m_nEnableSubNetProfiling;
-    BOOL m_bHeartBeatLoggingEnabled;
     BOOL m_bCreatureDeathLoggingEnabled;
     uint32_t m_nClientsRequiredToDisableCPUSleep;
     BOOL m_bStickyCombatModesEnabled;
@@ -134,6 +130,8 @@ struct CServerExoAppInternal
     int32_t m_AbilityBonusLimitModule;
     int32_t m_AbilityPenaltyLimitModule;
     int32_t m_SkillBonusLimitModule;
+    NWSync::Advertisement m_nwsyncModuleSourceAdvert;
+    AdvertLUT m_nwsyncAdvertLUT;
 
     CServerExoAppInternal();
     ~CServerExoAppInternal();
@@ -144,10 +142,10 @@ struct CServerExoAppInternal
     void ShutdownNetLayer();
     void RestartNetLayer();
     void Uninitialize();
-    BOOL AdmitNetworkAddress(uint32_t nProtocol, CExoString sAddress);
+    BOOL AdmitNetworkAddress(CExoString sAddress);
     BOOL AdmitPlayerName(CExoString sPlayerName);
-    BOOL HandleMessage(uint32_t nPlayerId, uint8_t * pData, uint32_t dwSize, BOOL bRawMessage);
-    BOOL SetNetworkAddressBan(uint32_t nProtocol, CExoString sAddress, BOOL bBanAddress);
+    void HandleMessage(uint32_t nPlayerId, uint8_t * pData, uint32_t dwSize);
+    BOOL SetNetworkAddressBan(CExoString sAddress, BOOL bBanAddress);
     void PlayerListChange(uint32_t nPlayerId, BOOL bEnter, BOOL bPrimaryPlayer);
     BOOL ContinueMessageProcessing();
     void RemovePCFromWorld(CNWSPlayer * pPlayer);
@@ -159,9 +157,8 @@ struct CServerExoAppInternal
     void OnLostFocus();
     void OnVideoChange();
     CWorldTimer * GetActiveTimer(OBJECT_ID oid = 0x7f000000);
-    void SetGameSpyReporting(BOOL bEnabled);
     CNWSPlayer * GetClientObjectByObjectId(OBJECT_ID nObjectId);
-    CNWSClient * GetClientObjectByPlayerId(uint32_t nPlayerId, uint8_t nClientType = 0);
+    CNWSPlayer * GetClientObjectByPlayerId(uint32_t nPlayerId);
     BOOL CopyModuleToCurrentGame(CExoString & sOldFilename, CExoString & sNewFilename, RESTYPE nResType);
     BOOL LoadGame(uint32_t nSlot, CExoString & sSaveName, CExoString & sModuleName, CNWSPlayer * pPlayer = nullptr);
     void SetEstimatedSaveSize(const CExoString & sFile, RESTYPE nResType);
@@ -174,7 +171,6 @@ struct CServerExoAppInternal
     BOOL ExportAllPlayers();
     BOOL ExportPlayer(CNWSPlayer * pPlayer);
     void DealWithLoadGameError(uint32_t nLoadErr);
-    BOOL SetDDCipherForModule(CExoString moduleName);
     CNWSModule * GetModule();
     CExoString GetModuleName();
     CGameObject * GetGameObject(OBJECT_ID nObjectID);
@@ -193,14 +189,13 @@ struct CServerExoAppInternal
     uint32_t GetPlayerIDByGameObjectID(OBJECT_ID nObjectID);
     int32_t GetPlayerLanguage(uint32_t nPlayerID);
     int32_t GetModuleLanguage();
-    BOOL GetPlayerAddressData(uint32_t nConnectionId, uint32_t * nProtocol, uint8_t * * pNetAddress1, uint8_t * * pNetAddress2, uint32_t * nPort);
+    //CNetPeer GetPlayerAddressData(CNetConnectionId nConnectionId);
     void GetExtendedServerInfo(class CExtendedServerInfo * pInfo);
-    void HandleGameSpyToServerMessage(int32_t nKeyId, void * pOutBuf, int nIndex = - 1);
     void UpdateClientsForObject(OBJECT_ID oidObjectToUpdate);
     void MarkUpdateClientsForObject(OBJECT_ID oidObjectToUpdate);
     void UpdateClientGameObjectsForPlayer(CNWSPlayer * pPlayer, BOOL bForce, uint64_t nCurrentSystemTime = 0);
     BOOL UnloadModule();
-    BOOL LoadModule(CExoString moduleResRef, BOOL bIsSaveGame = false, CNWSPlayer * pPlayer = nullptr, int32_t sourceType = 0);
+    BOOL LoadModule(CExoString moduleResRef, CUUID uuidOverride, BOOL bIsSaveGame, CNWSPlayer * pPlayer, int32_t sourceType, const NWSync::Advertisement & nwsyncModuleSourceAdvert);
     BOOL GetModuleExists(const CExoString & sModuleResRef);
     BOOL RunModule();
     void VomitServerOptionsToLog();
@@ -210,7 +205,6 @@ struct CServerExoAppInternal
     void MovePlayerToArea(void * pPlayer);
     void InitiateModuleForPlayer(void * pPlayer);
     void UpdateWindowTitle();
-    void AddItemAppearToScratch(CNWSItem * pItem, uint32_t * scratchBufferPos);
     BOOL GetFactionOfObject(OBJECT_ID oObject, int32_t * nFaction);
     BOOL SendCharacterQuery(CNWSPlayer * pPlayer);
     BOOL SendStartStallEvent(uint32_t nStallEvent);
@@ -218,8 +212,7 @@ struct CServerExoAppInternal
     BOOL GetPauseState(uint8_t nState);
     uint8_t GetActivePauseState();
     void SetPauseState(uint8_t nState, BOOL bPause);
-    void ClearPauseState();
-    AurList<OBJECT_ID> * GetActiveExclusionList();
+    CExoArrayList<OBJECT_ID> * GetActiveExclusionList();
     void AddToExclusionList(OBJECT_ID oidExclude, uint8_t nList);
     void RemoveFromExclusionList(OBJECT_ID oidExclude, uint8_t nList);
     BOOL IsOnActiveExclusionList(OBJECT_ID oidExclude);
@@ -249,8 +242,13 @@ struct CServerExoAppInternal
     void UnlockBiowareModule(CNWSModule * pModule);
     BOOL CreateServerVaultLostAndFound();
     BOOL StripColorTokens(CExoString & sInput);
-    void AddSubNetProfileSendSize(uint32_t nPlayerID, uint32_t nSize);
     CExoString GetHostedPublicInternetAddressAndPort();
+    int GetGameObjectUpdateInterval(CNWSObject * creature);
+    int GetGameObjectUpdateMessageLimit(CNWSObject * creature);
+    void SetGameObjectUpdateIntervalTarget(int target);
+    void SetGameObjectUpdateIntervalTargetLoading(int target);
+    void SetGameObjectUpdateMessageLimit(int target);
+    void SetGameObjectUpdateMessageLimitLoading(int target);
     BOOL StorePlayerCharacters();
     BOOL SendEnteringStartNewModuleMessage();
     BOOL SendExitingStartNewModuleMessage(BOOL bSuccess);
@@ -263,17 +261,9 @@ struct CServerExoAppInternal
     BOOL AddPendingAuthorization(uint32_t nPlayerID);
     BOOL RemovePendingAuthorization(uint32_t nPlayerID);
     void ConnectionLibMainLoop();
-    void CheckMasterServerTranslation();
     void StartShutdownTimer(uint64_t nTime, uint64_t nDelay);
     BOOL UpdateShutdownTimer(uint64_t nTime);
-    BOOL UpdateLogHeartbeatTimer(uint64_t nTime);
     BOOL UpdateAutoSaveTimer();
-    BOOL Test_Unit_Script_Compile();
-    BOOL Test_Unit_Script_Run();
-    void AddSubNetProfile(uint32_t nPlayerID, CExoString sPlayerName, CExoString sCDPublicKey);
-    void RemoveSubNetProfile(uint32_t nPlayerID);
-    void AddSubNetProfileRecvSize(uint32_t nPlayerID, uint32_t nSize);
-    void ShutdownServerProfiles();
 
 
 #ifdef NWN_CLASS_EXTENSION_CServerExoAppInternal

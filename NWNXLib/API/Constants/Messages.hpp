@@ -60,9 +60,16 @@ namespace MessageMajor
         PlayModuleCharacterList                = 0x31,
         CustomToken                            = 0x32,
         Cutscene                               = 0x33,
+        Resman                                 = 0x34,
+        GuiEvent                               = 0x35,
+        Device                                 = 0x36,
+        Nui                                    = 0x37,
+        SetShaderUniform                       = 0x38,
+        TargetingData                          = 0x39,
+        AudioStream                            = 0x40,
     };
     constexpr int32_t MIN   = 0;
-    constexpr int32_t MAX   = 0x33;
+    constexpr int32_t MAX   = 0x40;
 
     constexpr const char* ToString(const unsigned value)
     {
@@ -120,6 +127,13 @@ namespace MessageMajor
             "PlayModuleCharacterList",
             "CustomToken",
             "Cutscene",
+            "Resman",
+            "GuiEvent",
+            "Device",
+            "Nui",
+            "SetShaderUniform",
+            "TargetingData",
+            "AudioStream",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
@@ -699,9 +713,10 @@ namespace MessageCheatMinor
         ComputeSafeLocation                      = 0x1a,
         EnableScriptDebugger                     = 0x1b,
         ToggleHitDieDebugging                    = 0x1c,
+        RunScriptChunk                           = 0x1d,
     };
     constexpr int32_t MIN   = 1;
-    constexpr int32_t MAX   = 0x1c;
+    constexpr int32_t MAX   = 0x1d;
 
     constexpr const char* ToString(const unsigned value)
     {
@@ -736,6 +751,7 @@ namespace MessageCheatMinor
             "ComputeSafeLocation",
             "EnableScriptDebugger",
             "ToggleHitDieDebugging",
+            "RunScriptChunk",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
@@ -1199,6 +1215,9 @@ namespace MessageDungeonMasterMinor
         Difficulty                       = 0x11,
         ViewInventory                    = 0x12,
         SpawnTrapOnObject                = 0x13,
+        Login                            = 0x14,
+        Logout                           = 0x15,
+        LoginState                       = 0x16,
         Heal                             = 0x20,
         Kill                             = 0x21,
         Goto                             = 0x22,
@@ -1267,6 +1286,9 @@ namespace MessageDungeonMasterMinor
             case Difficulty:             return "Difficulty";
             case ViewInventory:          return "ViewInventory";
             case SpawnTrapOnObject:      return "SpawnTrapOnObject";
+            case Login:                  return "Login";
+            case Logout:                 return "Logout";
+            case LoginState:             return "LoginState";
             case Heal:                   return "Heal";
             case Kill:                   return "Kill";
             case Goto:                   return "Goto";
@@ -1771,6 +1793,104 @@ namespace MessageCutsceneMinor
             "StopFade",
             "BlackScreen",
             "HideGui",
+        };
+
+        return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
+    }
+}
+
+namespace MessageResmanMinor
+{
+    enum TYPE
+    {
+        Override                            = 0x01,
+        TlkOverride                         = 0x02,
+        TlkOverrideList                     = 0x03,
+    };
+    constexpr int32_t MIN   = 1;
+    constexpr int32_t MAX   = 0x03;
+
+    constexpr const char* ToString(const unsigned value)
+    {
+        constexpr const char* TYPE_STRINGS[] =
+        {
+            "Null",
+            "Override",
+            "TlkOverride",
+            "TlkOverrideList",
+        };
+
+        return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
+    }
+}
+
+namespace MessageGuiEventMinor
+{
+    enum TYPE
+    {
+        Notify                              = 0x01,
+        Disable                             = 0x02,
+    };
+    constexpr int32_t MIN   = 1;
+    constexpr int32_t MAX   = 0x02;
+
+    constexpr const char* ToString(const unsigned value)
+    {
+        constexpr const char* TYPE_STRINGS[] =
+        {
+            "Null",
+            "Notify",
+            "Disable",
+        };
+
+        return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
+    }
+}
+
+namespace MessageDeviceMinor
+{
+    enum TYPE
+    {
+        AdvertiseProperty                   = 0x01,
+    };
+    constexpr int32_t MIN   = 1;
+    constexpr int32_t MAX   = 0x01;
+
+    constexpr const char* ToString(const unsigned value)
+    {
+        constexpr const char* TYPE_STRINGS[] =
+        {
+            "Null",
+            "AdvertiseProperty",
+        };
+
+        return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
+    }
+}
+
+namespace MessageNuiMinor
+{
+    enum TYPE
+    {
+        CreateWindow                        = 0x01,
+        DestroyWindow                       = 0x02,
+        Events                              = 0x03,
+        Binds                               = 0x04,
+        SetLayout                           = 0x05,
+    };
+    constexpr int32_t MIN   = 1;
+    constexpr int32_t MAX   = 0x05;
+
+    constexpr const char* ToString(const unsigned value)
+    {
+        constexpr const char* TYPE_STRINGS[] =
+        {
+            "Null",
+            "CreateWindow",
+            "DestroyWindow",
+            "Events",
+            "Binds",
+            "SetLayout",
         };
 
         return (value > MAX) ? "(invalid)" : TYPE_STRINGS[value];
